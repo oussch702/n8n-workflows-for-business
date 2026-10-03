@@ -1,0 +1,398 @@
+{
+  "name": "Client onboarding kit",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Client onboarding kit\n\n**What it does**\nOne form submission sets up a new client: a Google Drive folder, a Notion page with a kickoff checklist, a welcome email to the client and a heads-up in Slack.\n\n**You need**\nGoogle Drive, Notion, Gmail and Slack credentials in n8n. A Notion database for clients with the properties listed in the README.\n\n**Setup**\n1. Connect the four credentials.\n2. Set your parent Drive folder in **Create client folder** and your Notion clients database in **Create client page**.\n3. Open the form URL from **New client form**, submit a test client, then activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 640,
+        "width": 500
+      },
+      "id": "dcdd7cf8-0f8b-42bb-a8c6-4b11d856e821",
+      "name": "Client onboarding kit",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Create client folder**: paste the ID of the folder that holds all client folders.\n**Create client page**: pick your Clients database. Property names must match the README.",
+        "height": 230,
+        "width": 430,
+        "color": 5
+      },
+      "id": "f25ffbca-dbe4-48e6-a923-00005788abae",
+      "name": "Edit me: Drive and Notion",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        400,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nRewrite the welcome email and set the Slack channel.",
+        "height": 230,
+        "width": 430,
+        "color": 5
+      },
+      "id": "127deeac-e32c-401f-a963-2568f8716f8f",
+      "name": "Edit me: welcome email",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        840,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "New client onboarding",
+        "formDescription": "Fill this in when a deal closes. It creates the client folder, the Notion page and sends the welcome email.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Company name",
+              "fieldName": "company",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Example Co"
+            },
+            {
+              "fieldLabel": "Contact full name",
+              "fieldName": "contact_name",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Jane Doe"
+            },
+            {
+              "fieldLabel": "Contact email",
+              "fieldName": "contact_email",
+              "fieldType": "email",
+              "requiredField": true,
+              "placeholder": "jane@example.com"
+            },
+            {
+              "fieldLabel": "Package",
+              "fieldName": "package",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Starter"
+                  },
+                  {
+                    "option": "Growth"
+                  },
+                  {
+                    "option": "Custom"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Start date",
+              "fieldName": "start_date",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Notes for the team",
+              "fieldName": "notes",
+              "fieldType": "textarea",
+              "requiredField": false
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Set up client",
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Done. The folder, Notion page and welcome email are on their way."
+            }
+          }
+        }
+      },
+      "id": "33665f22-0a83-4fb6-aac5-203789f41971",
+      "name": "New client form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "23619067-fb46-4768-bef7-940d9f3da89f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "company",
+              "name": "company",
+              "value": "={{ $json.company.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "contactName",
+              "name": "contactName",
+              "value": "={{ $json.contact_name.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "firstName",
+              "name": "firstName",
+              "value": "={{ $json.contact_name.trim().split(' ')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "name": "email",
+              "value": "={{ $json.contact_email.trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "package",
+              "name": "package",
+              "value": "={{ $json.package }}",
+              "type": "string"
+            },
+            {
+              "id": "startDate",
+              "name": "startDate",
+              "value": "={{ $json.start_date }}",
+              "type": "string"
+            },
+            {
+              "id": "notes",
+              "name": "notes",
+              "value": "={{ $json.notes || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "folderName",
+              "name": "folderName",
+              "value": "={{ $json.company.trim() }} ({{ $json.start_date.slice(0, 7) }})",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bd7f9e69-32a6-4860-af76-b99a9de34807",
+      "name": "Tidy the client details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.folderName }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_CLIENTS_FOLDER_ID",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "bd56f184-c878-440c-ab5b-e7101ae5ed5c",
+      "name": "Create client folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "YOUR_NOTION_DATA_SOURCE_ID",
+          "mode": "id"
+        },
+        "title": "={{ $('Tidy the client details').item.json.company }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Contact|rich_text",
+              "textContent": "={{ $('Tidy the client details').item.json.contactName }}"
+            },
+            {
+              "key": "Email|email",
+              "emailValue": "={{ $('Tidy the client details').item.json.email }}"
+            },
+            {
+              "key": "Package|select",
+              "selectValue": "={{ $('Tidy the client details').item.json.package }}"
+            },
+            {
+              "key": "Start date|date",
+              "date": "={{ $('Tidy the client details').item.json.startDate }}",
+              "includeTime": false
+            },
+            {
+              "key": "Drive folder|url",
+              "urlValue": "=https://drive.google.com/drive/folders/{{ $json.id }}"
+            }
+          ]
+        },
+        "contentType": "markdown",
+        "markdown": "=## Kickoff checklist\n- [ ] Welcome email sent (automatic)\n- [ ] Kickoff call booked\n- [ ] Access to tools and accounts received\n- [ ] First deliverable scheduled\n- [ ] Invoice sent\n\n## Notes from sales\n{{ $('Tidy the client details').item.json.notes || 'None' }}",
+        "options": {}
+      },
+      "id": "0755b581-1189-4275-a4e7-b741fbf75cc9",
+      "name": "Create client page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Tidy the client details').item.json.email }}",
+        "subject": "=Welcome aboard, {{ $('Tidy the client details').item.json.company }}",
+        "emailType": "html",
+        "message": "=<p>Hi {{ $('Tidy the client details').item.json.firstName }},</p>\n<p>Welcome, we are glad to be working with {{ $('Tidy the client details').item.json.company }}. Here is what happens next:</p>\n<ol>\n<li>We will send you a link to book a 30 minute kickoff call this week.</li>\n<li>Please share any logins, brand files or documents in your shared folder: <a href=\"https://drive.google.com/drive/folders/{{ $('Create client folder').item.json.id }}\">open your folder</a>.</li>\n<li>We start work on {{ $('Tidy the client details').item.json.startDate }}.</li>\n</ol>\n<p>If you have a question before then, just reply here.</p>\n<p>Best,<br>Your name<br>Your company</p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "6fe0851b-6cf9-49b6-a283-7da4dafa6254",
+      "name": "Send welcome email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#clients",
+          "mode": "name"
+        },
+        "messageType": "text",
+        "text": "=:tada: New client: *{{ $('Tidy the client details').item.json.company }}* ({{ $('Tidy the client details').item.json.package }}), starts {{ $('Tidy the client details').item.json.startDate }}\nContact: {{ $('Tidy the client details').item.json.contactName }}, {{ $('Tidy the client details').item.json.email }}\nNotion: {{ $('Create client page').item.json.url }}\nDrive: https://drive.google.com/drive/folders/{{ $('Create client folder').item.json.id }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "1fd533e7-f42c-4e9b-a92b-bbe4fd4c56f3",
+      "name": "Tell the team in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1100,
+        300
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New client form": {
+      "main": [
+        [
+          {
+            "node": "Tidy the client details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tidy the client details": {
+      "main": [
+        [
+          {
+            "node": "Create client folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create client folder": {
+      "main": [
+        [
+          {
+            "node": "Create client page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create client page": {
+      "main": [
+        [
+          {
+            "node": "Send welcome email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send welcome email": {
+      "main": [
+        [
+          {
+            "node": "Tell the team in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

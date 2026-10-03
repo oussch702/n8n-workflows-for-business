@@ -1,0 +1,433 @@
+{
+  "name": "Stale lead follow-up with AI-written emails",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Stale lead follow-up with AI-written emails\n\n**What it does**\nEvery weekday at 9:00 it reads your leads sheet, finds people you contacted 3+ days ago who never replied and have not had a follow-up yet, writes each one a short personal follow-up with OpenAI, sends it from your Gmail and marks the row so nobody gets chased twice.\n\n**You need**\nGoogle Sheets, Gmail and OpenAI credentials, and a `Leads` tab with these headers: name, email, company, interest, last_contacted_at, replied, status, followed_up_at\n\n**Setup**\n1. Create the sheet (dates as 2026-09-28 work best) and connect credentials.\n2. Fill in the yellow notes (sheet ID, your name and offer in the prompt).\n3. Run once with **Execute workflow** on a sheet holding one test lead with your own email, then activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 660,
+        "width": 580
+      },
+      "id": "2f8dbeed-959a-5982-94c5-7e0585f55758",
+      "name": "Stale lead follow-up with AI-written emails",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nSet your sheet ID in **Read all leads** and **Mark as followed up**. Change the 3 day window in **Only stale leads**. **Max 25 a day** keeps sending volume (and Gmail limits) sane.",
+        "height": 200,
+        "width": 480,
+        "color": 6
+      },
+      "id": "e20aa70f-5088-55f1-8723-10fc750f6b0b",
+      "name": "Edit me: sheet and limits",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me: your voice\nPut your name, company and what you offer in the system message of **Write the follow-up**. Read the first few emails before you let it run unattended.",
+        "height": 200,
+        "width": 300,
+        "color": 6
+      },
+      "id": "def8201c-4bbd-5cce-abfa-af41d47ed0eb",
+      "name": "Edit me: your voice",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        880,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "3cd3f462-357e-5975-a666-dce7e8d2df51",
+      "name": "Every weekday at 9:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "dfe44e31-b789-5988-b480-18e6543db9a4",
+      "name": "Read all leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6a907396-934c-573c-a313-9b27835b647f",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "4f4707df-4945-5bbb-89e5-5c8171b272c5",
+              "leftValue": "={{ String($json.replied || '').trim().toLowerCase() }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "2f24daef-6ecc-5030-bb94-a99db22bbfc4",
+              "leftValue": "={{ $json.followed_up_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "2795ee3a-c40d-576e-8b16-866ee8d4c012",
+              "leftValue": "={{ new Date($json.last_contacted_at).getTime() < $now.minus({ days: 3 }).toMillis() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "28382e17-a86a-5bb1-98e1-0245a483bf0a",
+      "name": "Only stale leads",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "maxItems": 25
+      },
+      "id": "ea9dc2d9-21af-5bb3-a9bc-6b6f0ecda1ec",
+      "name": "Max 25 a day",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a follow-up email to this lead.\n\nName: {{ $json.name }}\nCompany: {{ $json.company || 'unknown' }}\nWhat they asked about: {{ $json.interest || 'not recorded' }}\nLast contacted: {{ $json.last_contacted_at }}\nNotes: {{ $json.notes || 'none' }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You write short sales follow-up emails for Your Name at Your Company. We help small businesses with YOUR OFFER.\n\nRules:\n- 50 to 90 words, plain text, no markdown, no emojis.\n- Open with their first name. Refer to what they asked about in one specific sentence.\n- Offer one useful next step and end with one easy yes or no question.\n- No guilt trips (\"just checking in\", \"bumping this\"), no fake urgency, no invented facts.\n- Sign off as: Your Name, Your Company\n- Subject line: under 7 words, lowercase is fine, no clickbait."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "32105bbc-62fa-5549-a850-75ea15fbd1d4",
+      "name": "Write the follow-up",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.6
+        }
+      },
+      "id": "7eb411c0-8e89-5802-ae72-7e2094db1355",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        820,
+        520
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\n  \"subject\": \"quick question about your website\",\n  \"body\": \"Hi Sam, ...\"\n}",
+        "autoFix": false
+      },
+      "id": "860c7520-4b8b-5739-86d1-dd5136beabb3",
+      "name": "Subject and body",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1000,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Only stale leads').item.json.email }}",
+        "subject": "={{ $json.output.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.output.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8813fd4e-7226-5236-898e-1bff8a6ab78a",
+      "name": "Send the follow-up",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $('Only stale leads').item.json.email }}",
+            "followed_up_at": "={{ $now.toISODate() }}",
+            "status": "followed up (auto)"
+          },
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "followed_up_at",
+              "displayName": "followed_up_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "479f50a3-1498-5077-a80e-140e162b0491",
+      "name": "Mark as followed up",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1540,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every weekday at 9:00": {
+      "main": [
+        [
+          {
+            "node": "Read all leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read all leads": {
+      "main": [
+        [
+          {
+            "node": "Only stale leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only stale leads": {
+      "main": [
+        [
+          {
+            "node": "Max 25 a day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Max 25 a day": {
+      "main": [
+        [
+          {
+            "node": "Write the follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the follow-up": {
+      "main": [
+        [
+          {
+            "node": "Send the follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send the follow-up": {
+      "main": [
+        [
+          {
+            "node": "Mark as followed up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write the follow-up",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subject and body": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Write the follow-up",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

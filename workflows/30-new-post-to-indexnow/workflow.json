@@ -1,0 +1,290 @@
+{
+  "name": "New post to IndexNow (Bing, Yandex and partners)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## New post to IndexNow (Bing, Yandex and partners)\n\n**What it does**\nWhen you publish a post, this tells Bing, Yandex and the other IndexNow search engines about the URL within minutes, instead of waiting for their crawlers. Works from your RSS feed or from a webhook your CMS calls. Every submission is logged to Google Sheets with the response code.\n\n**You need**\nAn IndexNow key file on your site (README explains, 2 minutes), and a Google Sheets credential for the log.\n\n**Setup**\n1. Create your key and upload `<key>.txt` to your site root.\n2. Put the key and your host in **Build the IndexNow request**, your feed URL in **New post in RSS feed** and your sheet ID in **Log the submission**.\n3. Run once with a real post URL, then activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 700,
+        "width": 520
+      },
+      "id": "939adf91-6d62-43a5-a77a-33402c6780ea",
+      "name": "New post to IndexNow (Bing, Yandex and partners)",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n`KEY`: your IndexNow key.\n`ALLOWED_HOSTS`: your site host(s), for example `www.example.com`. URLs on other hosts are ignored.",
+        "height": 280,
+        "width": 220,
+        "color": 5
+      },
+      "id": "52ebf3c2-a48f-429e-a446-b090aaf1e26b",
+      "name": "Edit me: key and host",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nYour RSS or Atom feed URL. Delete this trigger if you only use the webhook.",
+        "height": 160,
+        "width": 200,
+        "color": 5
+      },
+      "id": "2235d035-cd58-432a-aabf-525e15610268",
+      "name": "Edit me: feed",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyHour"
+            }
+          ]
+        },
+        "feedUrl": "https://www.example.com/feed.xml"
+      },
+      "id": "9e7abf26-0d81-4da0-a9a4-112a2bce2979",
+      "name": "New post in RSS feed",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "indexnow-submit",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "97b6a194-fa81-4161-a04f-c501372e9e1c",
+      "name": "Or: ping from your CMS",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        440
+      ],
+      "webhookId": "592c1d61-553b-4e20-b099-764b76e48c99"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Your IndexNow key: 8 to 128 characters, letters, numbers and dashes only.\n// The file https://<host>/<KEY>.txt must exist and contain exactly this key.\nconst KEY = 'YOUR_INDEXNOW_KEY';\nconst ALLOWED_HOSTS = ['www.example.com'];\n\n// Collect URLs from either trigger:\n//   RSS item:      { link: 'https://...' }\n//   Webhook body:  { \"url\": \"https://...\" }  or  { \"urls\": [\"https://...\", \"...\"] }\nconst urls = [];\nfor (const { json } of $input.all()) {\n  if (json.link) urls.push(json.link);\n  const body = json.body || {};\n  if (body.url) urls.push(body.url);\n  if (Array.isArray(body.urls)) urls.push(...body.urls);\n}\n\n// Group by host, drop duplicates and anything not on your site.\nconst byHost = {};\nfor (const raw of urls) {\n  let u;\n  try { u = new URL(String(raw).trim()); } catch { continue; }\n  if (!ALLOWED_HOSTS.includes(u.host)) continue;\n  (byHost[u.host] ??= new Set()).add(u.href);\n}\n\nreturn Object.entries(byHost).map(([host, set]) => {\n  const urlList = [...set].slice(0, 10000); // IndexNow accepts up to 10,000 URLs per request\n  return {\n    json: {\n      host,\n      urlList,\n      payload: { host, key: KEY, keyLocation: `https://${host}/${KEY}.txt`, urlList },\n    },\n  };\n});"
+      },
+      "id": "039bfac4-e190-4fbe-a868-323905f4602d",
+      "name": "Build the IndexNow request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.indexnow.org/indexnow",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "df2e8152-2e2f-4aaa-a5b1-c64c46f654bc",
+      "name": "Submit to IndexNow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "IndexNow log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "submitted_at": "={{ $now.toISO() }}",
+            "host": "={{ $('Build the IndexNow request').item.json.host }}",
+            "url_count": "={{ $('Build the IndexNow request').item.json.urlList.length }}",
+            "urls": "={{ $('Build the IndexNow request').item.json.urlList.join(' ') }}",
+            "status": "={{ $json.statusCode || 'no response' }}",
+            "meaning": "={{ ({ 200: 'OK, URLs submitted', 202: 'Accepted, key check pending', 400: 'Bad request, check the payload', 403: 'Key not valid, check the key file', 422: 'URLs do not belong to the host or key', 429: 'Too many requests, slow down' })[$json.statusCode] || ($json.error ? 'Request failed: ' + $json.error.message : 'Unexpected response') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "host",
+              "displayName": "host",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url_count",
+              "displayName": "url_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "urls",
+              "displayName": "urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "meaning",
+              "displayName": "meaning",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "2984f9d8-dfa7-4211-abcf-c2620b6a1494",
+      "name": "Log the submission",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New post in RSS feed": {
+      "main": [
+        [
+          {
+            "node": "Build the IndexNow request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Or: ping from your CMS": {
+      "main": [
+        [
+          {
+            "node": "Build the IndexNow request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the IndexNow request": {
+      "main": [
+        [
+          {
+            "node": "Submit to IndexNow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit to IndexNow": {
+      "main": [
+        [
+          {
+            "node": "Log the submission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

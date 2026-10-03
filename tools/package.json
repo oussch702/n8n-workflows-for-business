@@ -1,0 +1,16 @@
+{
+  "name": "n8n-workflows-for-business-tools",
+  "version": "1.0.0",
+  "description": "Validates the workflows against n8n's node schemas",
+  "scripts": {
+    "validate": "node validate.mjs ../workflows/*/workflow.json"
+  },
+  "keywords": [],
+  "author": "AI Strike Force",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "n8n-mcp": "^2.91.0"
+  },
+  "private": true
+}

@@ -1,0 +1,394 @@
+{
+  "name": "Invoice email to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Invoice email to Google Sheets\n\n**What it does**\nWatches Gmail for emails with a PDF invoice, reads the PDF, pulls out vendor, invoice number, dates, amounts and currency with OpenAI, and adds one row per invoice to a Google Sheet.\n\n**You need**\nGmail, Google Sheets and OpenAI credentials in n8n. A sheet with the column headers listed in the README.\n\n**Setup**\n1. Connect your Gmail, Google Sheets and OpenAI credentials on the nodes that ask for them.\n2. Put your spreadsheet ID in **Add invoice row** and adjust the Gmail search in **New invoice email** if your invoices use other words.\n3. Send yourself a test invoice PDF, run the workflow once, then activate it.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 660,
+        "width": 500
+      },
+      "id": "f2f3a620-5138-4f17-a107-f66a82c2c592",
+      "name": "Invoice email to Google Sheets",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nThe Gmail search decides which emails count as invoices. Default:\n`has:attachment filename:pdf (invoice OR receipt OR facture)`\nAdd `from:billing@supplier.example` style filters if you get noise.",
+        "height": 250,
+        "width": 210,
+        "color": 5
+      },
+      "id": "3b6c47da-7c01-4374-a5e3-b853919b50f9",
+      "name": "Edit me: Gmail search",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nPut your spreadsheet ID here. It is the long part of the sheet URL between /d/ and /edit. The tab must be called **Invoices**.",
+        "height": 250,
+        "width": 210,
+        "color": 5
+      },
+      "id": "2403742f-ad35-4c4b-aca1-1bf544bba458",
+      "name": "Edit me: sheet",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        840,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "has:attachment filename:pdf (invoice OR receipt OR facture)"
+        },
+        "options": {
+          "downloadAttachments": true,
+          "dataPropertyAttachmentsPrefixName": "attachment_"
+        }
+      },
+      "id": "ec4c8eed-2855-4011-afd1-d793392add08",
+      "name": "New invoice email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// An email can carry a logo, a signature image and the invoice.\n// Keep the first PDF and pass it on as \"invoice_pdf\". Emails without a PDF stop here.\nconst out = [];\nfor (const item of $input.all()) {\n  const files = item.binary || {};\n  const key = Object.keys(files).find((k) =>\n    (files[k].mimeType || '').includes('pdf') || (files[k].fileName || '').toLowerCase().endsWith('.pdf'));\n  if (!key) continue;\n  out.push({\n    json: {\n      messageId: item.json.id,\n      receivedAt: item.json.date,\n      from: item.json.from?.value?.[0]?.address || item.json.from?.text || '',\n      subject: item.json.subject || '',\n      emailText: (item.json.text || '').slice(0, 4000),\n      fileName: files[key].fileName || 'invoice.pdf',\n    },\n    binary: { invoice_pdf: files[key] },\n  });\n}\nreturn out;"
+      },
+      "id": "185d63cc-1737-4a86-a779-657a0526de0c",
+      "name": "Find the PDF attachment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "invoice_pdf",
+        "options": {
+          "joinPages": true,
+          "maxPages": 10
+        }
+      },
+      "id": "8b6e9d8d-08b0-4df3-a99b-1bd5d3c30c74",
+      "name": "Read PDF text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "text": "=Email subject: {{ $('Find the PDF attachment').item.json.subject }}\nSender: {{ $('Find the PDF attachment').item.json.from }}\nFile name: {{ $('Find the PDF attachment').item.json.fileName }}\n\nInvoice text from the PDF:\n{{ ($json.text || '').slice(0, 30000) || '(the PDF had no readable text, use the email body below)' }}\n\nEmail body:\n{{ $('Find the PDF attachment').item.json.emailText }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"vendor\": {\n      \"type\": \"string\",\n      \"description\": \"Company that issued the invoice\"\n    },\n    \"invoice_number\": {\n      \"type\": \"string\"\n    },\n    \"invoice_date\": {\n      \"type\": \"string\",\n      \"description\": \"YYYY-MM-DD\"\n    },\n    \"due_date\": {\n      \"type\": \"string\",\n      \"description\": \"YYYY-MM-DD, empty if not stated\"\n    },\n    \"currency\": {\n      \"type\": \"string\",\n      \"description\": \"ISO code such as USD, EUR, GBP\"\n    },\n    \"subtotal\": {\n      \"type\": \"number\"\n    },\n    \"tax\": {\n      \"type\": \"number\"\n    },\n    \"total\": {\n      \"type\": \"number\",\n      \"description\": \"Amount due including tax\"\n    },\n    \"description\": {\n      \"type\": \"string\",\n      \"description\": \"What the invoice is for, under 15 words\"\n    }\n  },\n  \"required\": [\n    \"vendor\",\n    \"total\",\n    \"currency\"\n  ]\n}",
+        "options": {
+          "systemPromptTemplate": "You read supplier invoices and return their key fields. Only use values that appear in the text. If a field is missing, return an empty string, or 0 for numbers. Dates must be YYYY-MM-DD. Amounts are plain numbers with a dot as decimal separator and no currency symbol."
+        }
+      },
+      "id": "2fb9ba00-7ffc-419f-a453-0bf15812979d",
+      "name": "Extract invoice fields",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "c155515d-a6b7-486f-a12b-e9b1ed3563f0",
+      "name": "OpenAI model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        660,
+        520
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Invoices",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Received": "={{ $('Find the PDF attachment').item.json.receivedAt }}",
+            "Vendor": "={{ $json.output.vendor }}",
+            "Invoice number": "={{ $json.output.invoice_number }}",
+            "Invoice date": "={{ $json.output.invoice_date }}",
+            "Due date": "={{ $json.output.due_date }}",
+            "Currency": "={{ $json.output.currency }}",
+            "Subtotal": "={{ $json.output.subtotal }}",
+            "Tax": "={{ $json.output.tax }}",
+            "Total": "={{ $json.output.total }}",
+            "Description": "={{ $json.output.description }}",
+            "From": "={{ $('Find the PDF attachment').item.json.from }}",
+            "File": "={{ $('Find the PDF attachment').item.json.fileName }}",
+            "Gmail link": "=https://mail.google.com/mail/u/0/#all/{{ $('Find the PDF attachment').item.json.messageId }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Received",
+              "displayName": "Received",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Vendor",
+              "displayName": "Vendor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice number",
+              "displayName": "Invoice number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice date",
+              "displayName": "Invoice date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Due date",
+              "displayName": "Due date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Currency",
+              "displayName": "Currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Subtotal",
+              "displayName": "Subtotal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tax",
+              "displayName": "Tax",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total",
+              "displayName": "Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Description",
+              "displayName": "Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "From",
+              "displayName": "From",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "File",
+              "displayName": "File",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Gmail link",
+              "displayName": "Gmail link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "baf37308-4d59-4018-a97e-fc9dc9a41602",
+      "name": "Add invoice row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New invoice email": {
+      "main": [
+        [
+          {
+            "node": "Find the PDF attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the PDF attachment": {
+      "main": [
+        [
+          {
+            "node": "Read PDF text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read PDF text": {
+      "main": [
+        [
+          {
+            "node": "Extract invoice fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract invoice fields": {
+      "main": [
+        [
+          {
+            "node": "Add invoice row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract invoice fields",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

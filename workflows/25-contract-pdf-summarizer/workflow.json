@@ -1,0 +1,431 @@
+{
+  "name": "Contract PDF summarizer",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Contract PDF summarizer\n\n**What it does**\nSend a contract PDF by email (Gmail label) or drop it in a Google Drive folder. The workflow reads it and emails you a one page brief: parties, key dates, term and renewal, payment terms, termination, liability and the clauses worth a second look.\n\n**You need**\nGmail, Google Drive and OpenAI credentials. Use one entry point or both.\n\n**Setup**\n1. Connect the credentials. Delete the trigger you do not need.\n2. Create a Gmail label called **contracts** and/or pick a Drive folder in **Contract added to Drive**.\n3. Set the recipient in **Email the brief**, test with a real contract, then activate.\n\nThis is a reading aid, not legal advice.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 700,
+        "width": 520
+      },
+      "id": "25aebdc9-7da2-42a3-a66c-e4e04d8f8637",
+      "name": "Contract PDF summarizer",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Gmail**: label any email `contracts` (or set a filter that does it).\n**Drive**: pick the folder to watch.",
+        "height": 250,
+        "width": 210,
+        "color": 5
+      },
+      "id": "93509030-5c92-4298-af2d-35df974d2785",
+      "name": "Edit me: entry points",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nSet who receives the brief in both email nodes.",
+        "height": 200,
+        "width": 210,
+        "color": 5
+      },
+      "id": "3ea35576-d0e8-4a07-aa9a-2f9c10443e6c",
+      "name": "Edit me: recipient",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "label:contracts has:attachment filename:pdf"
+        },
+        "options": {
+          "downloadAttachments": true,
+          "dataPropertyAttachmentsPrefixName": "attachment_"
+        }
+      },
+      "id": "c31d3cd7-9445-4987-a61f-91e67ba36c3b",
+      "name": "Contract emailed in",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        180
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "YOUR_CONTRACTS_FOLDER_ID",
+          "mode": "id"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "id": "2f76056e-cf22-4846-a172-cc4997b7d22e",
+      "name": "Contract added to Drive",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        440
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "cdecb8ba-6570-4d6d-a391-13fcdf947ea7",
+      "name": "Download the file",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        220,
+        440
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Works for both entry points: Gmail attachments (attachment_0, attachment_1...) and the Drive download (data).\nconst out = [];\nfor (const item of $input.all()) {\n  const files = item.binary || {};\n  const key = Object.keys(files).find((k) =>\n    (files[k].mimeType || '').includes('pdf') || (files[k].fileName || '').toLowerCase().endsWith('.pdf'));\n  if (!key) continue; // not a PDF, nothing to do\n  const fromEmail = Boolean(item.json.subject !== undefined || item.json.from);\n  out.push({\n    json: {\n      fileName: files[key].fileName || 'contract.pdf',\n      source: fromEmail\n        ? 'Email from ' + (item.json.from?.value?.[0]?.address || 'unknown sender') + ': ' + (item.json.subject || '')\n        : 'Google Drive',\n      link: fromEmail\n        ? 'https://mail.google.com/mail/u/0/#all/' + item.json.id\n        : (item.json.webViewLink || (item.json.id ? 'https://drive.google.com/file/d/' + item.json.id + '/view' : '')),\n    },\n    binary: { contract_pdf: files[key] },\n  });\n}\nreturn out;"
+      },
+      "id": "7801b38c-bf2b-4bd5-a31f-0d4888869c5a",
+      "name": "Find the PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "contract_pdf",
+        "options": {
+          "joinPages": true
+        }
+      },
+      "id": "4dbb7f33-7fc6-4c57-ad99-aa3c40d1e0e8",
+      "name": "Read contract text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "enough-text",
+              "leftValue": "={{ ($json.text || '').trim().length }}",
+              "rightValue": 500,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "11994d0f-d0c5-45ee-a1aa-937a8320ee9c",
+      "name": "Has readable text?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "text": "=Contract file: {{ $('Find the PDF').item.json.fileName }}\n\n{{ $json.text.slice(0, 100000) }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"contract_type\": {\n      \"type\": \"string\",\n      \"description\": \"For example service agreement, NDA, lease, SaaS subscription\"\n    },\n    \"parties\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"role\": {\n            \"type\": \"string\"\n          }\n        }\n      }\n    },\n    \"effective_date\": {\n      \"type\": \"string\",\n      \"description\": \"YYYY-MM-DD or empty\"\n    },\n    \"end_date\": {\n      \"type\": \"string\",\n      \"description\": \"YYYY-MM-DD or empty\"\n    },\n    \"term_and_renewal\": {\n      \"type\": \"string\",\n      \"description\": \"Length, auto-renewal and how to stop it\"\n    },\n    \"notice_period\": {\n      \"type\": \"string\"\n    },\n    \"payment_terms\": {\n      \"type\": \"string\",\n      \"description\": \"Amounts, schedule, due days, late fees, price increases\"\n    },\n    \"termination\": {\n      \"type\": \"string\",\n      \"description\": \"Who can terminate, when and at what cost\"\n    },\n    \"liability_and_indemnity\": {\n      \"type\": \"string\"\n    },\n    \"governing_law\": {\n      \"type\": \"string\"\n    },\n    \"risks\": {\n      \"type\": \"array\",\n      \"description\": \"Clauses a small business owner should look at twice\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"clause\": {\n            \"type\": \"string\"\n          },\n          \"why_it_matters\": {\n            \"type\": \"string\"\n          },\n          \"severity\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"low\",\n              \"medium\",\n              \"high\"\n            ]\n          }\n        }\n      }\n    },\n    \"plain_summary\": {\n      \"type\": \"string\",\n      \"description\": \"Three sentences in plain English\"\n    }\n  },\n  \"required\": [\n    \"contract_type\",\n    \"parties\",\n    \"payment_terms\",\n    \"risks\",\n    \"plain_summary\"\n  ]\n}",
+        "options": {
+          "systemPromptTemplate": "You help a small business owner read contracts. Report only what the text says and quote section numbers when they exist. If something is not in the contract, write \"Not stated\". For risks, focus on auto-renewal, notice periods, unlimited liability, one-sided indemnities, exclusivity, payment penalties, price increase rights, IP ownership and termination fees. You are not giving legal advice."
+        }
+      },
+      "id": "d5646981-c55d-4ab2-a87a-c2284abd5438",
+      "name": "Summarize the contract",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "368675b0-abe0-45f8-a1d1-cc38582baa3f",
+      "name": "OpenAI model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1100,
+        400
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');\nreturn $input.all().map(({ json }, i) => {\n  const src = $('Find the PDF').itemMatching(i).json;\n  const c = json.output || {};\n  const row = (label, value) => `<tr><td style=\"padding:6px 12px 6px 0;vertical-align:top;color:#555;white-space:nowrap\">${label}</td><td style=\"padding:6px 0\">${esc(value || 'Not stated')}</td></tr>`;\n  const parties = (c.parties || []).map((p) => `${esc(p.name)} (${esc(p.role)})`).join('<br>') || 'Not stated';\n  const order = { high: 0, medium: 1, low: 2 };\n  const risks = (c.risks || []).sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3))\n    .map((r) => `<li><strong>${esc((r.severity || '').toUpperCase())}</strong> ${esc(r.clause)}: ${esc(r.why_it_matters)}</li>`).join('');\n  const html = `<div style=\"font-family:Arial,sans-serif;font-size:14px;line-height:1.5;max-width:680px\">\n<p>${esc(c.plain_summary)}</p>\n<table style=\"border-collapse:collapse\">\n<tr><td style=\"padding:6px 12px 6px 0;vertical-align:top;color:#555\">Parties</td><td style=\"padding:6px 0\">${parties}</td></tr>\n${row('Type', c.contract_type)}${row('Effective', c.effective_date)}${row('Ends', c.end_date)}${row('Term and renewal', c.term_and_renewal)}${row('Notice period', c.notice_period)}${row('Payment terms', c.payment_terms)}${row('Termination', c.termination)}${row('Liability', c.liability_and_indemnity)}${row('Governing law', c.governing_law)}\n</table>\n<h3 style=\"margin-top:20px\">Worth a second look</h3>\n<ul>${risks || '<li>Nothing flagged.</li>'}</ul>\n<p style=\"color:#777;font-size:12px\">Source: ${esc(src.source)}. File: ${src.link ? '<a href=\"' + src.link + '\">' + esc(src.fileName) + '</a>' : esc(src.fileName)}.<br>\nGenerated by AI as a reading aid. It can miss things and is not legal advice.</p></div>`;\n  return { json: { subject: `Contract brief: ${c.contract_type || 'contract'} with ${(c.parties || []).map((p) => p.name).slice(0, 2).join(' and ') || src.fileName}`, html } };\n});"
+      },
+      "id": "60d1a95e-4533-4c9f-af42-a4e2a4f15447",
+      "name": "Format the brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "you@example.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "9ffaf746-5e6c-487c-a40a-72809ef42237",
+      "name": "Email the brief",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        180
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "you@example.com",
+        "subject": "=Could not read contract: {{ $('Find the PDF').item.json.fileName }}",
+        "emailType": "text",
+        "message": "=The PDF {{ $('Find the PDF').item.json.fileName }} ({{ $('Find the PDF').item.json.source }}) has little or no selectable text. It is probably a scan or a photo. Run it through OCR (Google Drive can do this: right click, Open with Google Docs) and send the result again.\n\nLink: {{ $('Find the PDF').item.json.link }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "93381031-bdb6-442e-a037-cb118c063104",
+      "name": "Email: could not read PDF",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        600
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Contract emailed in": {
+      "main": [
+        [
+          {
+            "node": "Find the PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contract added to Drive": {
+      "main": [
+        [
+          {
+            "node": "Download the file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the file": {
+      "main": [
+        [
+          {
+            "node": "Find the PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the PDF": {
+      "main": [
+        [
+          {
+            "node": "Read contract text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read contract text": {
+      "main": [
+        [
+          {
+            "node": "Has readable text?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has readable text?": {
+      "main": [
+        [
+          {
+            "node": "Summarize the contract",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email: could not read PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize the contract": {
+      "main": [
+        [
+          {
+            "node": "Format the brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format the brief": {
+      "main": [
+        [
+          {
+            "node": "Email the brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summarize the contract",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

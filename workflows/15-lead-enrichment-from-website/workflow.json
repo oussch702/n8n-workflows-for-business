@@ -1,0 +1,533 @@
+{
+  "name": "Lead enrichment from the company website",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Lead enrichment from the company website\n\n**What it does**\nSend it a new lead with a company domain (or a work email). It fetches the company homepage, pulls out the readable text, and asks OpenAI what the company does, who it sells to and how big it looks. The answer is written back to the lead's row in your Google Sheets CRM, so your rep knows who they are calling before they dial.\n\n**You need**\nOpenAI and Google Sheets credentials, and a `Leads` tab with at least these headers: email, domain, company_summary, industry, sells_to, size_estimate, size_signals, enriched_at\n\n**Setup**\n1. Connect credentials and set your sheet ID (yellow note).\n2. POST leads to the Production URL of **New lead to enrich** as JSON: `{\"email\": \"jane@example.com\", \"domain\": \"example.com\"}` (domain is optional when the email is a work address).\n3. Activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 660,
+        "width": 580
+      },
+      "id": "b29a63e4-bb14-5472-baf0-4c3e5dfa772f",
+      "name": "Lead enrichment from the company website",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nLeads on free email providers (gmail.com and friends) have no company site to read, so they skip enrichment. Add your local providers to the list in **Work domain?**",
+        "height": 200,
+        "width": 260,
+        "color": 6
+      },
+      "id": "f33ee78b-377a-5c40-9940-a3a0c49ef39b",
+      "name": "Edit me: free email domains",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nSet your sheet ID and tab in **Update the CRM row**. Rows are matched on email; a new row is added if the email is not there yet.",
+        "height": 200,
+        "width": 300,
+        "color": 6
+      },
+      "id": "bd077cf6-7e8f-59fd-88d3-680f6e581093",
+      "name": "Edit me: sheet",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "enrich-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "9bc57b9b-a672-5061-ac63-59571bccc897",
+      "name": "New lead to enrich",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "321ae2cc-5c12-583e-8d45-1ec7d81a48a9"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a907396-934c-573c-a313-9b27835b647f",
+              "name": "email",
+              "value": "={{ ($json.body.email || '').trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "4f4707df-4945-5bbb-89e5-5c8171b272c5",
+              "name": "domain",
+              "value": "={{ String($json.body.domain || ($json.body.email || '').split('@')[1] || '').trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split('/')[0] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2c775aac-ae24-5fc8-8d67-f5874face24b",
+      "name": "Work out the domain",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"status\": \"enriching\"\n}",
+        "options": {}
+      },
+      "id": "a94fabcd-f801-5613-8d34-843e149853bc",
+      "name": "Accept the request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2f24daef-6ecc-5030-bb94-a99db22bbfc4",
+              "leftValue": "={{ $json.domain }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "2795ee3a-c40d-576e-8b16-866ee8d4c012",
+              "leftValue": "={{ ['gmail.com', 'googlemail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'live.com', 'icloud.com', 'me.com', 'aol.com', 'proton.me', 'protonmail.com', 'gmx.com', 'gmx.de', 'web.de', 'orange.fr', 'free.fr', 'laposte.net'].includes($json.domain) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "7a58f5e2-0923-5e17-b1ed-378d17c3c2ae",
+      "name": "Work domain?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $json.domain }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; LeadEnrichmentBot/1.0)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "c7227660-fe02-5ac3-9492-2207a3b3c4cb",
+      "name": "Fetch the homepage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        200
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "title",
+              "cssSelector": "title"
+            },
+            {
+              "key": "description",
+              "cssSelector": "meta[name=\"description\"]",
+              "returnValue": "attribute",
+              "attribute": "content"
+            },
+            {
+              "key": "headings",
+              "cssSelector": "h1, h2, h3",
+              "returnArray": true
+            },
+            {
+              "key": "body",
+              "cssSelector": "body",
+              "skipSelectors": "script, style, noscript, svg, iframe, form"
+            }
+          ]
+        },
+        "options": {
+          "trimValues": true,
+          "cleanUpText": true
+        }
+      },
+      "id": "f8712df5-33cb-56d0-8f13-332f739300cf",
+      "name": "Extract readable text",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Company domain: {{ $('Work out the domain').item.json.domain }}\nPage title: {{ $json.title || 'n/a' }}\nMeta description: {{ $json.description || 'n/a' }}\nHeadings: {{ ($json.headings || []).slice(0, 25).join(' | ') }}\nHomepage text (trimmed):\n{{ String($json.body || '').slice(0, 6000) }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You research B2B leads for a sales team. From the homepage content provided, describe the company in plain words.\n\nRules:\n- Only use what the page says. If the page is empty, blocked or a parking page, say so in company_summary and use \"unknown\" elsewhere.\n- company_summary: one or two sentences on what they sell and to whom.\n- size_estimate: one of solo, small (2-10), medium (11-50), large (51-250), enterprise (250+), unknown.\n- size_signals: the concrete clues you used (locations, team page, \"trusted by\" logos, careers page, number of products). Short.\n- No hype, no guessing at revenue."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "63c98275-0dc8-5027-b35b-892821acefc0",
+      "name": "Summarize the company",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1320,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "654070ac-100c-5879-a7d4-881a2ed18c1e",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1260,
+        420
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\n  \"company_summary\": \"Family-run HVAC contractor serving homeowners in Austin, TX.\",\n  \"industry\": \"Home services\",\n  \"sells_to\": \"B2C\",\n  \"size_estimate\": \"small (2-10)\",\n  \"size_signals\": \"Two service vans pictured, one location, team page lists 6 people\"\n}",
+        "autoFix": false
+      },
+      "id": "56ef147c-3109-56e8-aa6d-3ae14897acd7",
+      "name": "Enrichment fields",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1440,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $('Work out the domain').item.json.email }}",
+            "domain": "={{ $('Work out the domain').item.json.domain }}",
+            "company_summary": "={{ $json.output.company_summary }}",
+            "industry": "={{ $json.output.industry }}",
+            "sells_to": "={{ $json.output.sells_to }}",
+            "size_estimate": "={{ $json.output.size_estimate }}",
+            "size_signals": "={{ $json.output.size_signals }}",
+            "enriched_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "domain",
+              "displayName": "domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_summary",
+              "displayName": "company_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "industry",
+              "displayName": "industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sells_to",
+              "displayName": "sells_to",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "size_estimate",
+              "displayName": "size_estimate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "size_signals",
+              "displayName": "size_signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "enriched_at",
+              "displayName": "enriched_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "681ec191-38ec-577e-ab49-2144b4dbe296",
+      "name": "Update the CRM row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1540,
+        200
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New lead to enrich": {
+      "main": [
+        [
+          {
+            "node": "Work out the domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Work out the domain": {
+      "main": [
+        [
+          {
+            "node": "Accept the request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept the request": {
+      "main": [
+        [
+          {
+            "node": "Work domain?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Work domain?": {
+      "main": [
+        [
+          {
+            "node": "Fetch the homepage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch the homepage": {
+      "main": [
+        [
+          {
+            "node": "Extract readable text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract readable text": {
+      "main": [
+        [
+          {
+            "node": "Summarize the company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize the company": {
+      "main": [
+        [
+          {
+            "node": "Update the CRM row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summarize the company",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrichment fields": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Summarize the company",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

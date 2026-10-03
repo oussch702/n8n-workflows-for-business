@@ -1,0 +1,361 @@
+{
+  "name": "Vapi tool: book an appointment in Google Calendar",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Vapi tool: book an appointment in Google Calendar\n\n**What it does**\nGives your Vapi voice assistant a `book_appointment` tool. When a caller picks a time, Vapi calls this workflow, it checks your Google Calendar, books the slot if it is free and tells the assistant what to say back.\n\n**You need**\n- A Vapi assistant\n- Google Calendar connected to n8n\n\n**Setup**\n1. In **Read the tool call**, set your appointment length and time zone. In both Google Calendar nodes, put your calendar ID.\n2. Create a Header Auth credential in n8n (name `Authorization`, value `Bearer ` plus a long random string) and select it in **Vapi tool call**.\n3. In Vapi, create a function tool named `book_appointment` with the parameters from the README, point its server URL at this webhook's production URL and add a Bearer Token credential with the same string.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 760,
+        "width": 560
+      },
+      "id": "e9eab6dd-c048-5ba8-a701-751a22f84f32",
+      "name": "Vapi tool: book an appointment in Google Calendar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Read the tool call**: `APPOINTMENT_MINUTES` and `TIME_ZONE` at the top of the code.\n**Is the slot free?** and **Book the appointment**: your calendar ID (`primary` works for your main calendar).",
+        "height": 200,
+        "width": 660,
+        "color": 3
+      },
+      "id": "524316b4-30ca-5592-b072-86d1fc60f8c4",
+      "name": "Edit me: length, time zone, calendar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        220,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vapi-book-appointment",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "63353e2e-1643-5e70-9f0a-e425b41e4945",
+      "name": "Vapi tool call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Vapi tool secret"
+        }
+      },
+      "webhookId": "bcf057e4-b7fd-5c8b-8b42-05b62bf4377a"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Edit these two values for your business.\nconst APPOINTMENT_MINUTES = 30;\nconst TIME_ZONE = 'America/New_York';\n\n// Vapi sends: { message: { type: 'tool-calls', toolCallList: [{ id, function: { name, arguments } }] } }\nconst call = $json.body?.message?.toolCallList?.[0] ?? {};\nlet args = call.function?.arguments ?? {};\nif (typeof args === 'string') {\n  try { args = JSON.parse(args); } catch (e) { args = {}; }\n}\n\n// start_time should be ISO 8601. If the assistant leaves out the offset, read it in TIME_ZONE.\nconst start = DateTime.fromISO(String(args.start_time ?? ''), { zone: TIME_ZONE });\nconst valid = Boolean(call.id) && start.isValid;\nconst end = valid ? start.plus({ minutes: APPOINTMENT_MINUTES }) : null;\n\nreturn {\n  json: {\n    toolCallId: call.id ?? '',\n    valid,\n    name: String(args.name ?? '').trim() || 'Caller',\n    phone: String(args.phone ?? '').trim(),\n    email: String(args.email ?? '').trim(),\n    reason: String(args.reason ?? '').trim() || 'Appointment',\n    start: valid ? start.toISO() : '',\n    end: valid ? end.toISO() : '',\n    spokenTime: valid ? start.setZone(TIME_ZONE).toFormat(\"cccc, LLLL d 'at' h:mm a\") : '',\n  },\n};"
+      },
+      "id": "9d7cff2d-d974-53d2-ba93-0dd137147484",
+      "name": "Read the tool call",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b936794d-a25e-50b3-9110-9b9309a211fd",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d8539186-1cfe-59f3-b29f-403ad92631f9",
+      "name": "Did we get a valid time?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_CALENDAR_ID",
+          "mode": "id"
+        },
+        "timeMin": "={{ $json.start }}",
+        "timeMax": "={{ $json.end }}",
+        "options": {
+          "outputFormat": "availability"
+        }
+      },
+      "id": "97270750-df9c-5739-ae3a-2bc5225ef820",
+      "name": "Is the slot free?",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "name": "Google Calendar account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "09ed1ea7-a7f8-5feb-9e36-33547cd6b879",
+              "leftValue": "={{ $json.available }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "439094b1-ed96-5043-93ba-04477509a337",
+      "name": "Slot available?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_CALENDAR_ID",
+          "mode": "id"
+        },
+        "start": "={{ $('Read the tool call').item.json.start }}",
+        "end": "={{ $('Read the tool call').item.json.end }}",
+        "additionalFields": {
+          "summary": "={{ $('Read the tool call').item.json.reason }}: {{ $('Read the tool call').item.json.name }}",
+          "description": "=Booked by the AI receptionist.\nName: {{ $('Read the tool call').item.json.name }}\nPhone: {{ $('Read the tool call').item.json.phone }}\nEmail: {{ $('Read the tool call').item.json.email }}"
+        }
+      },
+      "id": "461a1a81-8cd7-50bf-8047-62751abfdeca",
+      "name": "Book the appointment",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "name": "Google Calendar account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { results: [ { toolCallId: $('Read the tool call').item.json.toolCallId, result: 'Booked for ' + $('Read the tool call').item.json.spokenTime + '. Confirm the time with the caller.' } ] } }}",
+        "options": {}
+      },
+      "id": "279963c1-258e-5e94-853d-5db50ea97955",
+      "name": "Tell Vapi it is booked",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { results: [ { toolCallId: $('Read the tool call').item.json.toolCallId, result: 'That time is already taken. Ask the caller for another time and try again.' } ] } }}",
+        "options": {}
+      },
+      "id": "acf2efdd-c62a-5a1e-832b-8cac6a7171aa",
+      "name": "Tell Vapi the slot is taken",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1100,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { results: [ { toolCallId: $('Read the tool call').item.json.toolCallId, result: 'I could not read the requested date and time. Ask the caller to repeat the day and time.' } ] } }}",
+        "options": {}
+      },
+      "id": "0e939770-4977-551d-8201-7c25c189e9cf",
+      "name": "Ask Vapi for a clearer time",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { results: [ { toolCallId: $('Read the tool call').item.json.toolCallId, result: 'The booking system is not responding. Apologise, take the caller name and number, and say the team will call back to confirm.' } ] } }}",
+        "options": {}
+      },
+      "id": "6b841921-28bf-5c50-b275-d59773fc4fb2",
+      "name": "Tell Vapi the calendar failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1320,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Vapi tool call": {
+      "main": [
+        [
+          {
+            "node": "Read the tool call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the tool call": {
+      "main": [
+        [
+          {
+            "node": "Did we get a valid time?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the slot free?": {
+      "main": [
+        [
+          {
+            "node": "Slot available?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Vapi the calendar failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Book the appointment": {
+      "main": [
+        [
+          {
+            "node": "Tell Vapi it is booked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Vapi the calendar failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did we get a valid time?": {
+      "main": [
+        [
+          {
+            "node": "Is the slot free?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask Vapi for a clearer time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slot available?": {
+      "main": [
+        [
+          {
+            "node": "Book the appointment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Vapi the slot is taken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

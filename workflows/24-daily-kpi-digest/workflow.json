@@ -1,0 +1,244 @@
+{
+  "name": "Daily KPI digest",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Daily KPI digest\n\n**What it does**\nEvery morning, reads your KPI sheet, compares the latest day with the day before and with the 7 day average, has OpenAI write a short plain English digest, and emails it to you with the numbers table underneath.\n\n**You need**\nGoogle Sheets, OpenAI and Gmail credentials. A sheet with one row per day, newest at the bottom, a Date column and one column per metric.\n\n**Setup**\n1. Connect the three credentials.\n2. Put your spreadsheet ID in **Read KPI sheet** and your email in **Email the digest**.\n3. Run it once to check the email, then activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 660,
+        "width": 500
+      },
+      "id": "8118bc44-109f-42ac-a7ed-b151e2060245",
+      "name": "Daily KPI digest",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nYour spreadsheet ID and the tab name (default **KPIs**). Any numeric column is picked up automatically.",
+        "height": 250,
+        "width": 210,
+        "color": 5
+      },
+      "id": "e22ea7dd-2043-44c8-aa47-adf776396ef7",
+      "name": "Edit me: sheet",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nWho gets the digest. Separate several addresses with commas.",
+        "height": 250,
+        "width": 210,
+        "color": 5
+      },
+      "id": "60f82b13-abba-47f0-af74-9253d29d0e44",
+      "name": "Edit me: recipient",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        840,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 7,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "id": "ba3f2700-304b-4e13-af36-05486ce864aa",
+      "name": "Every morning at 7:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "KPIs",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "84375997-d46a-4fcc-a885-b1a321e91c08",
+      "name": "Read KPI sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// One row per day, newest at the bottom. Every column except Date is treated as a metric.\nconst rows = $input.all().map((i) => i.json);\nif (rows.length < 2) throw new Error('The KPI sheet needs at least two rows of data to compare.');\n\nconst toNumber = (v) => (typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.\\-]/g, '')));\nconst latest = rows[rows.length - 1];\nconst previous = rows[rows.length - 2];\nconst week = rows.slice(-8, -1); // the 7 days before the latest one\n\nconst metrics = Object.keys(latest)\n  .filter((k) => !['date', 'row_number'].includes(k.toLowerCase()))\n  .filter((k) => !Number.isNaN(toNumber(latest[k])));\n\nconst fmt = (n) => (Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : 'n/a');\nconst pct = (now, before) => (before ? ((now - before) / Math.abs(before)) * 100 : null);\n\nconst table = metrics.map((m) => {\n  const now = toNumber(latest[m]);\n  const before = toNumber(previous[m]);\n  const values = week.map((r) => toNumber(r[m])).filter(Number.isFinite);\n  const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : NaN;\n  return { metric: m, now, before, vsYesterday: pct(now, before), avg7: avg, vsAverage: pct(now, avg) };\n});\n\nconst sign = (p) => (p === null || !Number.isFinite(p) ? 'n/a' : (p > 0 ? '+' : '') + p.toFixed(1) + '%');\nconst summaryForAi = table\n  .map((r) => `${r.metric}: ${fmt(r.now)} (yesterday ${fmt(r.before)}, ${sign(r.vsYesterday)}; 7 day average ${fmt(r.avg7)}, ${sign(r.vsAverage)})`)\n  .join('\\n');\n\nconst cell = 'style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;text-align:right\"';\nconst tableHtml = `<table style=\"border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px\">\n<tr><th style=\"text-align:left;padding:6px 10px\">Metric</th><th ${cell}>Latest</th><th ${cell}>Day before</th><th ${cell}>Change</th><th ${cell}>7 day avg</th></tr>\n${table.map((r) => `<tr><td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5\">${r.metric}</td><td ${cell}>${fmt(r.now)}</td><td ${cell}>${fmt(r.before)}</td><td ${cell}>${sign(r.vsYesterday)}</td><td ${cell}>${fmt(r.avg7)}</td></tr>`).join('')}\n</table>`;\n\nreturn [{ json: { date: latest.Date || latest.date || 'latest day', summaryForAi, tableHtml } }];"
+      },
+      "id": "f07727eb-e821-4400-a79e-ddfa052e9f93",
+      "name": "Compare with yesterday",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here are yesterday's business numbers for {{ $json.date }}, compared with the day before and with the 7 day average:\n\n{{ $json.summaryForAi }}\n\nWrite a short morning digest for the business owner:\n- First line: the one thing that matters most today, in one sentence.\n- Then 2 to 4 bullet points on the biggest moves, good or bad, with the actual numbers.\n- If a metric moved more than 30% against its 7 day average, say so plainly and suggest one thing to check.\nUse only the numbers above. Do not invent causes. No greetings, no sign-off, under 120 words. Plain text, bullets start with \"- \".",
+        "batching": {}
+      },
+      "id": "fe06c7a9-2555-421c-a3a5-687f3b599947",
+      "name": "Write the digest",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "a05bb037-9083-44e3-a4ee-4d0f64cb1d64",
+      "name": "OpenAI model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        660,
+        520
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "you@example.com",
+        "subject": "=KPI digest for {{ $('Compare with yesterday').item.json.date }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family:Arial,sans-serif;font-size:15px;line-height:1.5\">\n{{ $json.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\\n/g, '<br>') }}\n</div>\n<br>\n{{ $('Compare with yesterday').item.json.tableHtml }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "a82d8e19-d4bb-48e9-a83e-50da037a8b29",
+      "name": "Email the digest",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every morning at 7:30": {
+      "main": [
+        [
+          {
+            "node": "Read KPI sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read KPI sheet": {
+      "main": [
+        [
+          {
+            "node": "Compare with yesterday",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare with yesterday": {
+      "main": [
+        [
+          {
+            "node": "Write the digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the digest": {
+      "main": [
+        [
+          {
+            "node": "Email the digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write the digest",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

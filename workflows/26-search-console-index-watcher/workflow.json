@@ -1,0 +1,422 @@
+{
+  "name": "Search Console index watcher",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Search Console index watcher\n\n**What it does**\nEvery morning, checks your most important URLs with the Google Search Console URL Inspection API and alerts Slack when a page that was indexed is no longer indexed.\n\n**You need**\nA verified Search Console property, a Google OAuth2 credential with the `webmasters.readonly` scope, Google Sheets and Slack credentials.\n\n**Setup**\n1. Create a Google OAuth2 API credential named `Google Search Console account` (scope in the README) and connect it on **Inspect URL in Search Console**.\n2. Set your property in **Your settings** and your sheet ID in both sheet nodes.\n3. List your URLs in the sheet, run once to record today's state, then activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 660,
+        "width": 500
+      },
+      "id": "0a71af18-50ad-476e-ab48-fe1df691a2c5",
+      "name": "Search Console index watcher",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nYour Search Console property exactly as Google shows it:\n`sc-domain:example.com` for a domain property, or `https://www.example.com/` (with the trailing slash) for a URL prefix property.",
+        "height": 270,
+        "width": 210,
+        "color": 5
+      },
+      "id": "edbb6365-b6e7-4cb8-a2d4-6059585f42a8",
+      "name": "Edit me: property",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nSpreadsheet ID in **Read URLs to watch** and **Save today's status**. Tab name: **Index watch**.",
+        "height": 270,
+        "width": 190,
+        "color": 5
+      },
+      "id": "2da3ce5c-d684-414c-a2ab-cf307de6c6c7",
+      "name": "Edit me: sheet",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        450,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "4a78f23a-438c-4138-a677-0d6f193e32f9",
+      "name": "Every morning at 6:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "siteUrl",
+              "name": "siteUrl",
+              "value": "sc-domain:example.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "329dadec-87ba-4487-a19d-22fec5310f15",
+      "name": "Your settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Index watch",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "c52dd7d3-819a-4d9d-a93a-4aa4d8bcf2f6",
+      "name": "Read URLs to watch",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ inspectionUrl: $json.url, siteUrl: $('Your settings').first().json.siteUrl, languageCode: 'en-US' }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "771c7535-82b1-4436-a212-e1a327393261",
+      "name": "Inspect URL in Search Console",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "googleOAuth2Api": {
+          "name": "Google Search Console account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Both of these coverage states mean \"in Google's index\".\nconst INDEXED = ['Submitted and indexed', 'Indexed, not submitted in sitemap'];\nconst now = new Date().toISOString();\n\nreturn $input.all().map((item, i) => {\n  const row = $('Read URLs to watch').itemMatching(i).json;\n  const result = item.json.inspectionResult || {};\n  const status = result.indexStatusResult || {};\n  const failed = Boolean(item.json.error) || !result.indexStatusResult;\n  const error = failed ? String(item.json.error?.message || item.json.error || 'No inspection result returned').slice(0, 200) : '';\n\n  const before = row.coverage_state || '';\n  // If the API call failed, keep yesterday's state so a hiccup never looks like a drop.\n  const coverageState = failed ? before : status.coverageState || 'Unknown';\n  const dropped = !failed && INDEXED.includes(before) && !INDEXED.includes(coverageState);\n\n  return {\n    json: {\n      url: row.url,\n      coverage_state: coverageState,\n      previous_state: before,\n      verdict: failed ? row.verdict || '' : status.verdict || '',\n      last_crawl: failed ? row.last_crawl || '' : status.lastCrawlTime || '',\n      google_canonical: failed ? row.google_canonical || '' : status.googleCanonical || '',\n      last_checked: now,\n      last_error: error,\n      inspection_link: result.inspectionResultLink || '',\n      dropped,\n    },\n  };\n});"
+      },
+      "id": "0a7e2d93-0aff-4a75-a572-cad2cc0a242e",
+      "name": "Compare with last check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Index watch",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "url": "={{ $json.url }}",
+            "coverage_state": "={{ $json.coverage_state }}",
+            "verdict": "={{ $json.verdict }}",
+            "last_crawl": "={{ $json.last_crawl }}",
+            "google_canonical": "={{ $json.google_canonical }}",
+            "last_checked": "={{ $json.last_checked }}",
+            "last_error": "={{ $json.last_error }}"
+          },
+          "matchingColumns": [
+            "url"
+          ],
+          "schema": [
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "coverage_state",
+              "displayName": "coverage_state",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "verdict",
+              "displayName": "verdict",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_crawl",
+              "displayName": "last_crawl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "google_canonical",
+              "displayName": "google_canonical",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_checked",
+              "displayName": "last_checked",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_error",
+              "displayName": "last_error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "04a65239-7612-483c-a743-ac8b6d1c2d8e",
+      "name": "Save today's status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1100,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dropped",
+              "leftValue": "={{ $json.dropped }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "957c529c-bb99-4c1b-a6c7-de4305735efc",
+      "name": "Only pages that dropped",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1100,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#seo",
+          "mode": "name"
+        },
+        "messageType": "text",
+        "text": "=:rotating_light: *Page dropped out of Google's index*\n{{ $json.url }}\nWas: {{ $json.previous_state }}\nNow: *{{ $json.coverage_state }}*\nLast crawl: {{ $json.last_crawl || 'unknown' }}{{ $json.google_canonical && $json.google_canonical !== $json.url ? '\\nGoogle picked another canonical: ' + $json.google_canonical : '' }}\n{{ $json.inspection_link ? '<' + $json.inspection_link + '|Open in Search Console>' : '' }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "a5850af7-5d4e-404e-a2b5-de2a6c2ae8ec",
+      "name": "Alert in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1320,
+        440
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every morning at 6:00": {
+      "main": [
+        [
+          {
+            "node": "Your settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Your settings": {
+      "main": [
+        [
+          {
+            "node": "Read URLs to watch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read URLs to watch": {
+      "main": [
+        [
+          {
+            "node": "Inspect URL in Search Console",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inspect URL in Search Console": {
+      "main": [
+        [
+          {
+            "node": "Compare with last check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare with last check": {
+      "main": [
+        [
+          {
+            "node": "Save today's status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Only pages that dropped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only pages that dropped": {
+      "main": [
+        [
+          {
+            "node": "Alert in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

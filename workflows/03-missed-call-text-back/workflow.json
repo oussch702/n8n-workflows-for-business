@@ -1,0 +1,281 @@
+{
+  "name": "Missed call text back (Twilio)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Missed call text back (Twilio)\n\n**What it does**\nWhen nobody picks up, the caller gets a text within seconds with your booking link, and the missed call is logged in Google Sheets. Answered calls are left alone.\n\n**You need**\n- A Twilio phone number that can send SMS\n- Google Sheets connected to n8n\n\n**Setup**\n1. Edit the SMS text and booking link in **Text the caller back**, and set your Twilio number as the sender.\n2. Create a Google Sheet with a tab named `Missed calls` (headers in the README) and paste its ID into **Log the missed call**.\n3. Activate the workflow. In Twilio, point your number at a TwiML Bin that forwards the call with `<Dial action=\"PRODUCTION_WEBHOOK_URL\" timeout=\"20\">` (full snippet in the README).\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 740,
+        "width": 560
+      },
+      "id": "5bc67c8d-73dc-58eb-826f-58482f7cb0b8",
+      "name": "Missed call text back (Twilio)",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Text the caller back**: your Twilio number, message and booking link.\n**Log the missed call**: your sheet ID.",
+        "height": 160,
+        "width": 480,
+        "color": 3
+      },
+      "id": "18c2f75b-db5f-5464-b389-a3fa97eaba36",
+      "name": "Edit me: message and sheet",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "twilio-missed-call",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f903e564-4455-5db7-897e-68c4b826a5e4",
+      "name": "Twilio call ended",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "0837367b-bbac-57a4-9fed-1513ffae40bd"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ (['no-answer', 'busy', 'failed', 'canceled'].includes($json.body.DialCallStatus) && /^\\+\\d{8,15}$/.test($json.body.From || '') && !['+266696687', '+7378742833'].includes($json.body.From)) ? '<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say>Sorry we missed your call. We are sending you a text now so you can book a time that suits you.</Say><Hangup/></Response>' : '<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response/>' }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "030548fc-3866-5956-85ab-338c00f5d801",
+      "name": "Answer Twilio with TwiML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ea1e2f68-6a90-5ede-bf34-307ebc2c8111",
+              "leftValue": "={{ (['no-answer', 'busy', 'failed', 'canceled'].includes($json.body.DialCallStatus) && /^\\+\\d{8,15}$/.test($json.body.From || '') && !['+266696687', '+7378742833'].includes($json.body.From)) }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7cbbb606-5c13-5a1d-a618-9912e957a3a4",
+      "name": "Was the call missed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "from": "+15555550123",
+        "to": "={{ $json.body.From }}",
+        "message": "Hi, it's Your Business. Sorry we missed your call. Book a time that suits you here: https://example.com/book or just reply to this text.",
+        "options": {}
+      },
+      "id": "d986abed-1fbd-5b80-a13e-77ea4d9e9000",
+      "name": "Text the caller back",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "twilioApi": {
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Missed calls",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+            "Caller": "={{ $('Twilio call ended').item.json.body.From }}",
+            "Called number": "={{ $('Twilio call ended').item.json.body.To }}",
+            "Dial status": "={{ $('Twilio call ended').item.json.body.DialCallStatus }}",
+            "Call SID": "={{ $('Twilio call ended').item.json.body.CallSid }}",
+            "Text status": "={{ $json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Caller",
+              "displayName": "Caller",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Called number",
+              "displayName": "Called number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Dial status",
+              "displayName": "Dial status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Call SID",
+              "displayName": "Call SID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Text status",
+              "displayName": "Text status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4fdf7eb4-b4c3-58d4-8053-cfeb4d60e53d",
+      "name": "Log the missed call",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Twilio call ended": {
+      "main": [
+        [
+          {
+            "node": "Answer Twilio with TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Twilio with TwiML": {
+      "main": [
+        [
+          {
+            "node": "Was the call missed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was the call missed?": {
+      "main": [
+        [
+          {
+            "node": "Text the caller back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text the caller back": {
+      "main": [
+        [
+          {
+            "node": "Log the missed call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

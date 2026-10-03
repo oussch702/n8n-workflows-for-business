@@ -1,0 +1,460 @@
+{
+  "name": "YouTube video to blog draft in Google Docs",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## YouTube video to blog draft in Google Docs\n\n**What it does**\nWhen your channel publishes a new video, it grabs the transcript (or the video description if no transcript is available), has OpenAI turn it into a structured blog draft, and saves it as a new Google Doc in your drafts folder. You edit and publish.\n\n**You need**\nOpenAI and Google Docs credentials, a free YouTube Data API key, and optionally a transcript API (any service that returns a video's transcript as text over HTTP).\n\n**Setup**\n1. Put your channel ID in the feed URL of **New video on the channel**.\n2. Create two Query Auth credentials: `YouTube Data API key` (name `key`) and, if you use one, `Transcript API key` (see the yellow note).\n3. Pick the Drive folder in **Create the draft doc**, connect credentials, activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 680,
+        "width": 580
+      },
+      "id": "2be07b24-c401-527a-a11f-a05b3cf6739d",
+      "name": "YouTube video to blog draft in Google Docs",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nReplace YOUR_CHANNEL_ID in the feed URL. It is the `UC...` ID on your channel's About page (Share channel, Copy channel ID).",
+        "height": 200,
+        "width": 260,
+        "color": 6
+      },
+      "id": "ba46d48c-1fa0-59d4-a374-cd3caf74faa4",
+      "name": "Edit me: channel",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me: transcript\nPoint **Fetch the transcript** at your transcript API and match its auth. The next node reads `text`, `transcript` or `content` from the response. No transcript service? Select the node and press D to disable it: the video description is used instead. If the service is down, the node fails quietly and the description is used too.",
+        "height": 220,
+        "width": 460,
+        "color": 6
+      },
+      "id": "5f8e118d-8d69-57f2-8b14-72739805f36d",
+      "name": "Edit me: transcript source",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        440,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nPick the Google Drive folder for drafts. Docs are titled `DRAFT: <post title>`.",
+        "height": 180,
+        "width": 300,
+        "color": 6
+      },
+      "id": "9edb10c0-ad23-5baa-9eae-4f162b96bb20",
+      "name": "Edit me: folder",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyHour"
+            }
+          ]
+        },
+        "feedUrl": "https://www.youtube.com/feeds/videos.xml?channel_id=YOUR_CHANNEL_ID"
+      },
+      "id": "10bd93f5-47ad-5734-8401-79a05b059b67",
+      "name": "New video on the channel",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a907396-934c-573c-a313-9b27835b647f",
+              "name": "video_id",
+              "value": "={{ String($json.id || '').replace('yt:video:', '') || (String($json.link).split('v=')[1] || '').split('&')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "4f4707df-4945-5bbb-89e5-5c8171b272c5",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "2f24daef-6ecc-5030-bb94-a99db22bbfc4",
+              "name": "link",
+              "value": "={{ $json.link }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2a1782cc-b45e-591d-b1e1-d0df92be38df",
+      "name": "Get the video ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://your-transcript-service.example.com/transcript",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "video_id",
+              "value": "={{ $json.video_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "c6c8f23f-fb47-55fe-b566-07a5b4857790",
+      "name": "Fetch the transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "name": "Transcript API key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "id",
+              "value": "={{ $('Get the video ID').item.json.video_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "54dc0919-f55b-5c52-bd40-832bab7b0b67",
+      "name": "Fetch the video description",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "name": "YouTube Data API key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2795ee3a-c40d-576e-8b16-866ee8d4c012",
+              "name": "title",
+              "value": "={{ $('Get the video ID').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "34cf09b7-c81e-5c04-aa9d-fdf40dbaf3cf",
+              "name": "link",
+              "value": "={{ $('Get the video ID').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "12bd6151-e54e-5bd8-853a-eef783db32e5",
+              "name": "transcript",
+              "value": "={{ String($('Fetch the transcript').item.json.text || $('Fetch the transcript').item.json.transcript || $('Fetch the transcript').item.json.content || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "cdd20d35-25a6-567a-8ae1-0a549a2d9ead",
+              "name": "description",
+              "value": "={{ String($json.items?.[0]?.snippet?.description || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "8413545b-4c7a-5c79-bb42-cea8899a155f",
+              "name": "source_type",
+              "value": "={{ String($('Fetch the transcript').item.json.text || $('Fetch the transcript').item.json.transcript || $('Fetch the transcript').item.json.content || '').trim().length > 300 ? 'transcript' : 'description' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fece90b0-5018-5f84-875f-ffc85e1297d3",
+      "name": "Pick the source text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Video title: {{ $json.title }}\nVideo link: {{ $json.link }}\nSource type: {{ $json.source_type }}\n\nSource text:\n{{ ($json.source_type === 'transcript' ? $json.transcript : $json.description).slice(0, 40000) }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You turn YouTube videos into blog post drafts for [YOUR COMPANY]'s website. Readers: [YOUR AUDIENCE].\n\nRules:\n- Use only what the source says. Do not add facts, numbers, tools or quotes that are not in it.\n- If the source type is \"description\", the source is short: write a short post (200 to 400 words) and do not pad it.\n- If it is a transcript, write 700 to 1200 words, cut the filler and spoken tics, and keep the speaker's actual advice and examples.\n- Structure the body in Markdown: a two or three sentence intro, H2 sections, short paragraphs, a short \"Key takeaways\" list, and a closing line that links to the video.\n- Plain, direct language. No em dashes, no \"in today's world\", no \"let's dive in\".\n- title: under 60 characters, says what the reader gets. meta_description: under 155 characters."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "ef732ff7-c72d-5b74-a42c-77384066d784",
+      "name": "Write the blog draft",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.5
+        }
+      },
+      "id": "49d5de1b-2eae-58a2-9a27-2a853eae1d90",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        520
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\n  \"title\": \"How to answer every lead in under 5 minutes\",\n  \"meta_description\": \"A simple setup that texts, emails and alerts your team the moment a lead comes in.\",\n  \"body\": \"Most leads go cold within the first hour...\\n\\n## Why speed matters\\n...\"\n}",
+        "autoFix": false
+      },
+      "id": "eb1c2076-6acc-57cd-ac14-031b1db7938b",
+      "name": "Title, meta and body",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1220,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "driveId": "myDrive",
+        "folderId": "YOUR_FOLDER_ID",
+        "title": "=DRAFT: {{ $json.output.title }}"
+      },
+      "id": "0b5cf20f-cc6c-5508-a321-ace43144e16c",
+      "name": "Create the draft doc",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ],
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "object": "text",
+              "text": "=Title: {{ $('Write the blog draft').item.json.output.title }}\nMeta description: {{ $('Write the blog draft').item.json.output.meta_description }}\nSource video: {{ $('Pick the source text').item.json.link }} (written from the {{ $('Pick the source text').item.json.source_type }})\n\n{{ $('Write the blog draft').item.json.output.body }}"
+            }
+          ]
+        }
+      },
+      "id": "f80be611-f443-5054-9454-9ceec73d8369",
+      "name": "Write the draft into the doc",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        300
+      ],
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "name": "Google Docs account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New video on the channel": {
+      "main": [
+        [
+          {
+            "node": "Get the video ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the video ID": {
+      "main": [
+        [
+          {
+            "node": "Fetch the transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch the transcript": {
+      "main": [
+        [
+          {
+            "node": "Fetch the video description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch the video description": {
+      "main": [
+        [
+          {
+            "node": "Pick the source text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick the source text": {
+      "main": [
+        [
+          {
+            "node": "Write the blog draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the blog draft": {
+      "main": [
+        [
+          {
+            "node": "Create the draft doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create the draft doc": {
+      "main": [
+        [
+          {
+            "node": "Write the draft into the doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write the blog draft",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Title, meta and body": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Write the blog draft",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

@@ -1,0 +1,555 @@
+{
+  "name": "Google review request after an appointment",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Google review request after an appointment\n\n**What it does**\nWhen an appointment in your Google Calendar ends, it waits 2 hours, checks your log so a client is never asked twice, then sends one short review request: by SMS if the event has a phone number, by email otherwise. Each request is logged so nobody is asked twice.\n\n**You need**\nGoogle Calendar, Google Sheets, Twilio and Gmail credentials, and your Google review link.\n\n**Setup**\n1. Book clients as event guests, and put their mobile in the event description as `Phone: +15555550123` if you want SMS.\n2. Create a `Review requests` tab with headers: sent_at, name, email, phone, channel, event\n3. Fill in the yellow notes (calendar, review link, Twilio number, sheet ID) and activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 640,
+        "width": 580
+      },
+      "id": "d997e52e-a9be-5cde-b69d-4cf7507256ca",
+      "name": "Google review request after an appointment",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nPick the calendar. Events are skipped when they have no guest, are cancelled, or have `internal` or `no review` in the title.",
+        "height": 180,
+        "width": 480,
+        "color": 6
+      },
+      "id": "545d2803-a9ed-523d-bc41-52954a4ee52a",
+      "name": "Edit me: calendar and filter",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nGet your link in Google Business Profile (Ask for reviews) and put it in **Settings**, with your business name. Set the Twilio *From* number and rewrite both messages in your voice.",
+        "height": 200,
+        "width": 480,
+        "color": 6
+      },
+      "id": "5d97e2fd-ddc4-50f4-807b-52c312fcfd26",
+      "name": "Edit me: review link and messages",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 15,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "calendarId": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "id"
+        },
+        "triggerOn": "eventEnded",
+        "options": {}
+      },
+      "id": "85b04bda-ec87-5883-b21b-22f2fa3260f0",
+      "name": "Appointment ended",
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6a907396-934c-573c-a313-9b27835b647f",
+              "leftValue": "={{ ($json.attendees || []).some(a => !a.self && !a.organizer && a.email) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "4f4707df-4945-5bbb-89e5-5c8171b272c5",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "cancelled",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "2f24daef-6ecc-5030-bb94-a99db22bbfc4",
+              "leftValue": "={{ /internal|no review/i.test($json.summary || '') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "3633360c-8c24-58ec-9c3f-f9b5e88e6b02",
+      "name": "Only client appointments",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2795ee3a-c40d-576e-8b16-866ee8d4c012",
+              "name": "review_link",
+              "value": "https://g.page/r/YOUR_REVIEW_LINK/review",
+              "type": "string"
+            },
+            {
+              "id": "34cf09b7-c81e-5c04-aa9d-fdf40dbaf3cf",
+              "name": "business_name",
+              "value": "Your Business",
+              "type": "string"
+            },
+            {
+              "id": "12bd6151-e54e-5bd8-853a-eef783db32e5",
+              "name": "email",
+              "value": "={{ ($json.attendees || []).find(a => !a.self && !a.organizer && a.email).email.toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "cdd20d35-25a6-567a-8ae1-0a549a2d9ead",
+              "name": "name",
+              "value": "={{ (($json.attendees || []).find(a => !a.self && !a.organizer && a.email).displayName || '').split(' ')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "8413545b-4c7a-5c79-bb42-cea8899a155f",
+              "name": "phone",
+              "value": "={{ ((($json.description || '').match(/phone:\\s*(\\+?[0-9][0-9 ().-]{6,})/i) || [])[1] || '').replace(/[^0-9+]/g, '') }}",
+              "type": "string"
+            },
+            {
+              "id": "596608a5-f4b5-5d56-bfac-930bd5618783",
+              "name": "event",
+              "value": "={{ $json.summary }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d282e213-6716-59d9-adeb-582fd49e9dd3",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 2,
+        "unit": "hours"
+      },
+      "id": "1e3f7622-ffa2-5b8a-a232-1b3de9f3b596",
+      "name": "Wait 2 hours",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        300
+      ],
+      "webhookId": "21361406-8c78-56d8-a8b7-5bbe23c26a7c"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Review requests",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "339db74c-970d-5536-9bc5-2e25143597c9",
+      "name": "Read past requests",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        880,
+        480
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByFields",
+        "fieldsToMatchString": "email",
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input1",
+        "options": {}
+      },
+      "id": "dc94edea-67e3-5471-8d00-8628a8a0001f",
+      "name": "Skip clients already asked",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d1d04acb-be4b-5e63-93b0-72c19f46d331",
+              "leftValue": "={{ $('Settings').item.json.phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "0c8f8b5a-8a2a-50cd-8362-fcf00411f56c",
+      "name": "Has a phone number?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "from": "+15555550123",
+        "to": "={{ $('Settings').item.json.phone }}",
+        "message": "=Hi {{ $('Settings').item.json.name || 'there' }}, thanks for coming in today! If you have a minute, a short Google review helps {{ $('Settings').item.json.business_name }} a lot: {{ $('Settings').item.json.review_link }}",
+        "options": {}
+      },
+      "id": "1c450479-f6f5-53d2-9967-1acc1493a60c",
+      "name": "Text the review link",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        200
+      ],
+      "credentials": {
+        "twilioApi": {
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Settings').item.json.email }}",
+        "subject": "=Thanks for coming in today",
+        "emailType": "text",
+        "message": "=Hi {{ $('Settings').item.json.name || 'there' }},\n\nThank you for your visit today. We hope everything went well.\n\nIf you have a minute, a short Google review would mean a lot to us and helps other people find {{ $('Settings').item.json.business_name }}:\n{{ $('Settings').item.json.review_link }}\n\nAnd if anything was not right, just reply to this email. It comes straight to us.\n\nThanks,\nThe team at {{ $('Settings').item.json.business_name }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "2fbf6e4d-21ac-52af-b2f4-3a9c3fd693b8",
+      "name": "Email the review link",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        400
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Review requests",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "sent_at": "={{ $now.toISO() }}",
+            "name": "={{ $('Settings').item.json.name }}",
+            "email": "={{ $('Settings').item.json.email }}",
+            "phone": "={{ $('Settings').item.json.phone }}",
+            "channel": "={{ $('Settings').item.json.phone ? 'sms' : 'email' }}",
+            "event": "={{ $('Settings').item.json.event }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "channel",
+              "displayName": "channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "334ec36a-bf9d-5407-b24f-aec7874aa281",
+      "name": "Log the request",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1760,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Appointment ended": {
+      "main": [
+        [
+          {
+            "node": "Only client appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only client appointments": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 hours": {
+      "main": [
+        [
+          {
+            "node": "Skip clients already asked",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read past requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read past requests": {
+      "main": [
+        [
+          {
+            "node": "Skip clients already asked",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Skip clients already asked": {
+      "main": [
+        [
+          {
+            "node": "Has a phone number?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has a phone number?": {
+      "main": [
+        [
+          {
+            "node": "Text the review link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email the review link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text the review link": {
+      "main": [
+        [
+          {
+            "node": "Log the request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email the review link": {
+      "main": [
+        [
+          {
+            "node": "Log the request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

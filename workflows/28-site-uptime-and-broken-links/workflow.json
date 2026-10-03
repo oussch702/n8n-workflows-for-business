@@ -1,0 +1,215 @@
+{
+  "name": "Site uptime and broken page alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Site uptime and broken page alerts\n\n**What it does**\nEvery 15 minutes, loads your key pages and checks three things: the page answers, it returns a 2xx status, and it still contains a piece of text you expect. Alerts Slack once when a page goes down, reminds every 4 hours while it stays down, and tells you when it is back with the total downtime. No alert storm.\n\n**You need**\nA Slack credential. Nothing else.\n\n**Setup**\n1. List your pages in **Pages to check**.\n2. Connect Slack in **Alert in Slack** and pick the channel.\n3. Activate. Alert state is only saved in active (production) runs, see the README for testing.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 680,
+        "width": 500
+      },
+      "id": "1d29d075-c167-4710-a62c-06385b6c1fcc",
+      "name": "Site uptime and broken page alerts",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nYour URLs, the text each page must contain (optional) and the timeout that counts as \"too slow\".",
+        "height": 250,
+        "width": 210,
+        "color": 5
+      },
+      "id": "7303b736-49b4-4640-aa9a-e0d57c1d7cf8",
+      "name": "Edit me: pages",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n`failuresBeforeAlert` (default 2) and `remindEveryHours` (default 4) are at the top of this code node.",
+        "height": 250,
+        "width": 210,
+        "color": 5
+      },
+      "id": "3395559b-b478-4556-a000-5f4b81a8c3f9",
+      "name": "Edit me: alert rules",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "5f97df81-0d49-4ffb-afd4-50c7c3b803f0",
+      "name": "Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One line per page. mustContain is optional: a word or phrase that only appears when the page renders correctly\n// (a footer line, your phone number, a product name). It catches blank pages and error pages that still return 200.\nconst timeoutSeconds = 10; // slower than this counts as down\n\nconst pages = [\n  { url: 'https://www.example.com/', mustContain: 'Example' },\n  { url: 'https://www.example.com/pricing', mustContain: '' },\n  { url: 'https://www.example.com/contact', mustContain: '' },\n];\n\nreturn pages.map((p) => ({ json: { ...p, timeoutSeconds } }));"
+      },
+      "id": "f5b297b5-8c7b-4c32-ae12-da39ceb3b576",
+      "name": "Pages to check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; uptime-check/1.0)"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        "options": {
+          "timeout": "={{ $json.timeoutSeconds * 1000 }}",
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "ccec3cf6-4e9d-48ed-af63-9c0ef6ddadc2",
+      "name": "Fetch the page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Alert rules\nconst failuresBeforeAlert = 2; // consecutive failed checks before the first alert (2 = about 15 min at this schedule)\nconst remindEveryHours = 4;    // reminder while still down; 0 turns reminders off\n\n// Workflow static data survives between runs of an ACTIVE workflow. Manual test runs do not save it.\nconst state = $getWorkflowStaticData('global');\nstate.pages = state.pages || {};\nconst now = Date.now();\nconst minutes = (ms) => {\n  const m = Math.round(ms / 60000);\n  return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';\n};\n\nconst alerts = [];\n$input.all().forEach((item, i) => {\n  const page = $('Pages to check').itemMatching(i).json;\n  const res = item.json;\n  const body = String(res.data ?? res.body ?? '');\n\n  let problem = '';\n  if (res.error) {\n    const msg = String(res.error.message || res.error.description || res.error);\n    problem = /timeout|timed out|ECONNABORTED|ETIMEDOUT/i.test(msg)\n      ? 'no response within ' + page.timeoutSeconds + 's'\n      : 'request failed: ' + msg.slice(0, 120);\n  } else if (!(res.statusCode >= 200 && res.statusCode < 300)) {\n    problem = 'HTTP ' + res.statusCode + (res.statusMessage ? ' ' + res.statusMessage : '');\n  } else if (page.mustContain && !body.includes(page.mustContain)) {\n    problem = 'page loads but the text \"' + page.mustContain + '\" is missing';\n  }\n\n  const s = state.pages[page.url] || { failures: 0, down: false, since: 0, lastAlert: 0 };\n  if (problem) {\n    s.failures += 1;\n    if (!s.since) s.since = now;\n    if (!s.down && s.failures >= failuresBeforeAlert) {\n      s.down = true;\n      s.lastAlert = now;\n      alerts.push(':red_circle: *DOWN* ' + page.url + '\\n' + problem);\n    } else if (s.down && remindEveryHours > 0 && now - s.lastAlert >= remindEveryHours * 3600000) {\n      s.lastAlert = now;\n      alerts.push(':red_circle: *Still down* after ' + minutes(now - s.since) + ': ' + page.url + '\\n' + problem);\n    }\n    state.pages[page.url] = s;\n  } else {\n    if (s.down) alerts.push(':large_green_circle: *Back up* ' + page.url + '\\nDown for about ' + minutes(now - s.since));\n    state.pages[page.url] = { failures: 0, down: false, since: 0, lastAlert: 0 };\n  }\n});\n\n// No alerts means no output items, so Slack is not called.\nreturn alerts.map((text) => ({ json: { text } }));"
+      },
+      "id": "e8bca7ad-9183-4ebb-a53d-f6db84457050",
+      "name": "Decide and de-duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#ops",
+          "mode": "name"
+        },
+        "messageType": "text",
+        "text": "={{ $json.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "6983dbca-a363-4fd8-a7f2-933d6fb38616",
+      "name": "Alert in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "Pages to check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pages to check": {
+      "main": [
+        [
+          {
+            "node": "Fetch the page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch the page": {
+      "main": [
+        [
+          {
+            "node": "Decide and de-duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide and de-duplicate": {
+      "main": [
+        [
+          {
+            "node": "Alert in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

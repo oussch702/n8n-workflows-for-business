@@ -1,0 +1,786 @@
+{
+  "name": "Google Drive to Instagram Reels",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Google Drive to Instagram Reels\n\n**What it does**\nDrop a finished vertical video into a Google Drive folder and it goes out as an Instagram Reel: the file is shared by link, an Instagram REELS container is created, the workflow waits until Instagram reports `FINISHED`, publishes it, and logs the permalink to Google Sheets. Failures go to Slack with the reason.\n\n**You need**\nAn Instagram professional account linked to a Facebook Page, a Meta app with a long-lived access token (instagram_basic, instagram_content_publish, pages_read_engagement), Google Drive, Google Sheets and Slack credentials.\n\n**Setup**\n1. Create a Facebook Graph API credential named `Meta Graph API account` with your token.\n2. Fill in **Settings** (Instagram user ID, size limit, hashtags) and pick the Drive folder.\n3. Activate, then drop a short MP4 (H.264, 9:16, under 50 MB) into the folder.\n\n**Keep files small.** A 54 MB Reel failed with \"Container Publication failed\" because the video fetch was rejected with HTTP 413. Compressing to about 5 MB fixed it:\n`ffmpeg -i in.mp4 -c:v libx264 -crf 28 -preset slow -c:a aac -b:a 128k -movflags +faststart out.mp4`\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 760,
+        "width": 580
+      },
+      "id": "47cb8a00-7fac-5a06-86af-5b5e807a99d1",
+      "name": "Google Drive to Instagram Reels",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**New video in the Reels folder**: pick the folder.\n**Settings**: your Instagram user ID (a number, not the @handle), the max file size and your default hashtags. The caption is the Drive file's description if you set one, otherwise the file name.",
+        "height": 200,
+        "width": 480,
+        "color": 6
+      },
+      "id": "9cc52c67-56fd-572e-a824-32598cc33394",
+      "name": "Edit me: folder and settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "YOUR_FOLDER_ID",
+          "mode": "id"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "id": "903b2eb6-6c82-5b6e-be36-22c6b4b5b962",
+      "name": "New video in the Reels folder",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a907396-934c-573c-a313-9b27835b647f",
+              "name": "ig_user_id",
+              "value": "YOUR_IG_USER_ID",
+              "type": "string"
+            },
+            {
+              "id": "4f4707df-4945-5bbb-89e5-5c8171b272c5",
+              "name": "graph_url",
+              "value": "https://graph.facebook.com/v26.0",
+              "type": "string"
+            },
+            {
+              "id": "2f24daef-6ecc-5030-bb94-a99db22bbfc4",
+              "name": "max_mb",
+              "value": "50",
+              "type": "number"
+            },
+            {
+              "id": "2795ee3a-c40d-576e-8b16-866ee8d4c012",
+              "name": "hashtags",
+              "value": "#yourbrand #smallbusiness",
+              "type": "string"
+            },
+            {
+              "id": "34cf09b7-c81e-5c04-aa9d-fdf40dbaf3cf",
+              "name": "file_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "12bd6151-e54e-5bd8-853a-eef783db32e5",
+              "name": "file_name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "cdd20d35-25a6-567a-8ae1-0a549a2d9ead",
+              "name": "mime_type",
+              "value": "={{ $json.mimeType || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "8413545b-4c7a-5c79-bb42-cea8899a155f",
+              "name": "size_mb",
+              "value": "={{ Math.round(Number($json.size || 0) / 1048576 * 10) / 10 }}",
+              "type": "number"
+            },
+            {
+              "id": "596608a5-f4b5-5d56-bfac-930bd5618783",
+              "name": "caption",
+              "value": "={{ ($json.description || $json.name.replace(/\\.[^.]+$/, '').replace(/[-_]+/g, ' ')).trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d6d02ae2-25e6-5398-a682-55ff09a7a679",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d1d04acb-be4b-5e63-93b0-72c19f46d331",
+              "leftValue": "={{ $json.mime_type }}",
+              "rightValue": "video/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            },
+            {
+              "id": "4ad9babf-2a65-5a8a-8d9f-0039e8a2facc",
+              "leftValue": "={{ $json.size_mb }}",
+              "rightValue": "={{ $json.max_mb }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "bc74007a-bc62-5550-a5ee-99cabd340202",
+      "name": "Video under the size limit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#social",
+          "mode": "name"
+        },
+        "text": "=:warning: *{{ $json.file_name }}* was not posted to Instagram.\nIt is {{ $json.size_mb }} MB ({{ $json.mime_type || 'unknown type' }}). Reels need a video under {{ $json.max_mb }} MB here. Large files fail with HTTP 413 and \"Container Publication failed\".\nCompress it and drop it in again:\n`ffmpeg -i in.mp4 -c:v libx264 -crf 28 -preset slow -c:a aac -b:a 128k -movflags +faststart out.mp4`",
+        "otherOptions": {}
+      },
+      "id": "a679c0b5-764c-571a-8de9-f50ff774eb44",
+      "name": "Ask for a smaller file",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        660,
+        500
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.file_id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "reader",
+            "type": "anyone"
+          }
+        },
+        "options": {}
+      },
+      "id": "d72df6d8-9da1-5ecf-97b5-9b9e9fdd8708",
+      "name": "Share the file by link",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        660,
+        200
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "method": "POST",
+        "url": "={{ $('Settings').item.json.graph_url }}/{{ $('Settings').item.json.ig_user_id }}/media",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  media_type: 'REELS',\n  video_url: 'https://drive.google.com/uc?export=download&id=' + $('Settings').item.json.file_id,\n  caption: ($('Settings').item.json.caption + '\\n\\n' + $('Settings').item.json.hashtags).trim(),\n  share_to_feed: true\n}) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "6a824333-4b5f-50ce-a26b-4ad6bba1eda1",
+      "name": "Create Reels container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        200
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "name": "Meta Graph API account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "d327ac41-c8e9-52c7-a9b5-66ebad84e677",
+      "name": "Wait 60 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        200
+      ],
+      "webhookId": "54dc5af4-4c46-5682-92dd-cbeb7fb3fb0e"
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "url": "={{ $('Settings').item.json.graph_url }}/{{ $('Create Reels container').item.json.id }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "status_code,status"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7a3cc020-c3f9-5972-9475-848bb124f119",
+      "name": "Check container status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1320,
+        200
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "name": "Meta Graph API account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7bd71689-fb06-5279-90b4-970508a66fae",
+                    "leftValue": "={{ $json.status_code }}",
+                    "rightValue": "FINISHED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "or"
+              },
+              "renameOutput": true,
+              "outputKey": "Finished"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "76a64878-f0e6-511b-ba2c-5ce723e1a893",
+                    "leftValue": "={{ $json.status_code }}",
+                    "rightValue": "ERROR",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "787b952a-a845-5169-86eb-c9b9ce3b15e7",
+                    "leftValue": "={{ $json.status_code }}",
+                    "rightValue": "EXPIRED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "or"
+              },
+              "renameOutput": true,
+              "outputKey": "Failed"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Still processing"
+        }
+      },
+      "id": "a4a6c903-15a4-5ff6-b4c9-a16715418647",
+      "name": "Is it ready?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1540,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f316a5c6-7759-54a4-8828-a25f4994f03c",
+              "leftValue": "={{ $runIndex }}",
+              "rightValue": 10,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "4d2f6721-ad94-5d99-97cc-2b88c075fcf0",
+      "name": "Try again?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1760,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#social",
+          "mode": "name"
+        },
+        "text": "=:hourglass: Instagram was still processing *{{ $('Settings').item.json.file_name }}* after about 10 minutes, so it was not published.\nContainer ID: {{ $('Create Reels container').item.json.id }}. Try a smaller file or check the video specs (H.264, AAC, 9:16, 3 s to 15 min).",
+        "otherOptions": {}
+      },
+      "id": "f4ad191b-9245-504e-b94c-345926aeb4b6",
+      "name": "Alert: still processing",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1980,
+        520
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#social",
+          "mode": "name"
+        },
+        "text": "=:x: Instagram rejected *{{ $('Settings').item.json.file_name }}* ({{ $('Settings').item.json.size_mb }} MB): {{ $json.status_code }} {{ $json.status || '' }}\nThe usual cause is file size: a 54 MB Reel failed this way (HTTP 413). Compress to about 5 MB and drop it in again:\n`ffmpeg -i in.mp4 -c:v libx264 -crf 28 -preset slow -c:a aac -b:a 128k -movflags +faststart out.mp4`",
+        "otherOptions": {}
+      },
+      "id": "f35f6ebd-11de-5946-9ba0-130993757eee",
+      "name": "Alert: container failed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1760,
+        0
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "method": "POST",
+        "url": "={{ $('Settings').item.json.graph_url }}/{{ $('Settings').item.json.ig_user_id }}/media_publish",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ creation_id: $('Create Reels container').item.json.id }) }}",
+        "options": {}
+      },
+      "id": "1818114b-03a9-5683-a55b-ffef64c4488f",
+      "name": "Publish the Reel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        200
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "name": "Meta Graph API account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "url": "={{ $('Settings').item.json.graph_url }}/{{ $json.id }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "permalink,timestamp"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b7c788c4-4d35-50b3-aa0b-c413f6996957",
+      "name": "Get the permalink",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1980,
+        200
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "name": "Meta Graph API account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reels log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "published_at": "={{ $now.toISO() }}",
+            "file_name": "={{ $('Settings').item.json.file_name }}",
+            "size_mb": "={{ $('Settings').item.json.size_mb }}",
+            "media_id": "={{ $('Publish the Reel').item.json.id }}",
+            "permalink": "={{ $json.permalink || '' }}",
+            "caption": "={{ $('Settings').item.json.caption }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "published_at",
+              "displayName": "published_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "file_name",
+              "displayName": "file_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "size_mb",
+              "displayName": "size_mb",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "media_id",
+              "displayName": "media_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "permalink",
+              "displayName": "permalink",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "f5acea61-376a-566c-a872-b8dca0b46db1",
+      "name": "Log the post",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2200,
+        200
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New video in the Reels folder": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Video under the size limit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video under the size limit?": {
+      "main": [
+        [
+          {
+            "node": "Share the file by link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask for a smaller file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share the file by link": {
+      "main": [
+        [
+          {
+            "node": "Create Reels container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Reels container": {
+      "main": [
+        [
+          {
+            "node": "Wait 60 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60 seconds": {
+      "main": [
+        [
+          {
+            "node": "Check container status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check container status": {
+      "main": [
+        [
+          {
+            "node": "Is it ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it ready?": {
+      "main": [
+        [
+          {
+            "node": "Publish the Reel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: container failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Try again?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Try again?": {
+      "main": [
+        [
+          {
+            "node": "Wait 60 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: still processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish the Reel": {
+      "main": [
+        [
+          {
+            "node": "Get the permalink",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the permalink": {
+      "main": [
+        [
+          {
+            "node": "Log the post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

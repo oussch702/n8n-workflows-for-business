@@ -1,0 +1,420 @@
+[
+  {
+    "number": 1,
+    "slug": "retell-call-summary-to-sheets",
+    "title": "Retell AI call summary to Google Sheets",
+    "category": "AI receptionist and calls",
+    "summary": "Logs every finished Retell AI call to Google Sheets with an AI summary and lead rating, and alerts Slack about hot leads.",
+    "services": [
+      "Retell AI",
+      "OpenAI",
+      "Google Sheets",
+      "Slack"
+    ],
+    "trigger": "Webhook",
+    "cost": "about $0.0014 per call in OpenAI tokens"
+  },
+  {
+    "number": 2,
+    "slug": "vapi-book-appointment-tool",
+    "title": "Vapi tool: book an appointment in Google Calendar",
+    "category": "AI receptionist and calls",
+    "summary": "Gives a Vapi voice assistant a tool that checks Google Calendar and books the appointment during the call.",
+    "services": [
+      "Vapi",
+      "Google Calendar"
+    ],
+    "trigger": "Webhook",
+    "cost": "no AI cost; Vapi bills the call itself"
+  },
+  {
+    "number": 3,
+    "slug": "missed-call-text-back",
+    "title": "Missed call text back (Twilio)",
+    "category": "AI receptionist and calls",
+    "summary": "Texts callers you missed a booking link within seconds through Twilio and logs each missed call to Google Sheets.",
+    "services": [
+      "Twilio",
+      "Google Sheets"
+    ],
+    "trigger": "Webhook",
+    "cost": "about $0.008 per SMS in the US"
+  },
+  {
+    "number": 4,
+    "slug": "post-call-lead-scoring",
+    "title": "Post-call lead scoring to HubSpot",
+    "category": "AI receptionist and calls",
+    "summary": "Scores call transcripts on budget, timeline and intent, writes the score to HubSpot and alerts Slack for high scores.",
+    "services": [
+      "OpenAI",
+      "HubSpot",
+      "Slack"
+    ],
+    "trigger": "Webhook",
+    "cost": "about $0.0013 per call in OpenAI tokens"
+  },
+  {
+    "number": 5,
+    "slug": "daily-call-report",
+    "title": "Daily call report by email",
+    "category": "AI receptionist and calls",
+    "summary": "Emails the owner an end-of-day digest of calls logged in Google Sheets, with hot leads to call back first.",
+    "services": [
+      "Google Sheets",
+      "OpenAI",
+      "Gmail"
+    ],
+    "trigger": "Schedule",
+    "cost": "about $0.002 a day in OpenAI tokens"
+  },
+  {
+    "number": 6,
+    "slug": "whatsapp-ai-support-agent",
+    "title": "WhatsApp AI support agent",
+    "category": "WhatsApp",
+    "summary": "Answers customer questions on WhatsApp from your own FAQ with an AI agent and hands off to staff in Slack on request.",
+    "services": [
+      "WhatsApp",
+      "OpenAI",
+      "Slack"
+    ],
+    "trigger": "WhatsApp message",
+    "cost": "about $0.0006 per reply in OpenAI tokens"
+  },
+  {
+    "number": 7,
+    "slug": "whatsapp-lead-qualification",
+    "title": "WhatsApp lead qualification",
+    "category": "WhatsApp",
+    "summary": "Qualifies WhatsApp leads on name, need, budget and timing, keeps them in Google Sheets and sends a calendar link to good fits.",
+    "services": [
+      "WhatsApp",
+      "OpenAI",
+      "Google Sheets"
+    ],
+    "trigger": "WhatsApp message",
+    "cost": "about $0.0004 per message in OpenAI tokens"
+  },
+  {
+    "number": 8,
+    "slug": "whatsapp-appointment-reminders",
+    "title": "WhatsApp appointment reminders from Google Calendar",
+    "category": "WhatsApp",
+    "summary": "Sends one WhatsApp template reminder for each Google Calendar appointment in the next 24 hours and logs every send.",
+    "services": [
+      "Google Calendar",
+      "WhatsApp",
+      "Google Sheets"
+    ],
+    "trigger": "Schedule",
+    "cost": "Meta utility template rate per message, by country"
+  },
+  {
+    "number": 9,
+    "slug": "whatsapp-order-status-bot",
+    "title": "WhatsApp order status bot for Shopify",
+    "category": "WhatsApp",
+    "summary": "Replies to WhatsApp order questions with live Shopify status and tracking, only for the number on the order.",
+    "services": [
+      "WhatsApp",
+      "Shopify"
+    ],
+    "trigger": "WhatsApp message",
+    "cost": "no AI cost; service replies are free"
+  },
+  {
+    "number": 10,
+    "slug": "whatsapp-sale-to-meta-capi",
+    "title": "WhatsApp sale to Meta Conversions API",
+    "category": "WhatsApp",
+    "summary": "Sends a Purchase event with the click-to-WhatsApp click ID to Meta Conversions API when a chat sale closes.",
+    "services": [
+      "Meta Conversions API",
+      "Google Sheets"
+    ],
+    "trigger": "Webhook",
+    "cost": "free; no AI calls"
+  },
+  {
+    "number": 11,
+    "slug": "form-lead-qualify-and-route",
+    "title": "Form lead: qualify and route",
+    "category": "Leads and CRM",
+    "summary": "Qualifies website form leads on budget, timeline and authority, emails a booking link or nurture email and logs to Sheets.",
+    "services": [
+      "Gmail",
+      "Slack",
+      "Google Sheets"
+    ],
+    "trigger": "Webhook",
+    "cost": "free; no AI calls"
+  },
+  {
+    "number": 12,
+    "slug": "speed-to-lead-alerts",
+    "title": "Speed to lead: instant email, SMS and Slack",
+    "category": "Leads and CRM",
+    "summary": "Emails each new lead, texts your sales rep and posts to Slack within seconds of the form submission.",
+    "services": [
+      "Gmail",
+      "Twilio",
+      "Slack"
+    ],
+    "trigger": "Webhook",
+    "cost": "about one cent per lead in Twilio SMS"
+  },
+  {
+    "number": 13,
+    "slug": "facebook-lead-ads-to-crm",
+    "title": "Facebook Lead Ads to HubSpot with welcome SMS",
+    "category": "Leads and CRM",
+    "summary": "Creates a HubSpot contact and deal for every Facebook or Instagram lead form submission and texts a welcome SMS.",
+    "services": [
+      "Facebook Lead Ads",
+      "HubSpot",
+      "Twilio"
+    ],
+    "trigger": "Facebook lead",
+    "cost": "about one cent per lead in Twilio SMS"
+  },
+  {
+    "number": 14,
+    "slug": "stale-lead-follow-up",
+    "title": "Stale lead follow-up with AI-written emails",
+    "category": "Leads and CRM",
+    "summary": "Finds leads in Google Sheets who went quiet for three days and sends each an AI-written personal follow-up from Gmail.",
+    "services": [
+      "Google Sheets",
+      "OpenAI",
+      "Gmail"
+    ],
+    "trigger": "Schedule",
+    "cost": "about $0.0004 per email in OpenAI tokens"
+  },
+  {
+    "number": 15,
+    "slug": "lead-enrichment-from-website",
+    "title": "Lead enrichment from the company website",
+    "category": "Leads and CRM",
+    "summary": "Reads a new lead's company homepage and writes an AI profile of what they do and how big they look to your CRM sheet.",
+    "services": [
+      "OpenAI",
+      "Google Sheets"
+    ],
+    "trigger": "Webhook",
+    "cost": "about $0.001 per lead in OpenAI tokens"
+  },
+  {
+    "number": 16,
+    "slug": "rss-to-linkedin-drafts",
+    "title": "RSS to LinkedIn drafts (approval queue)",
+    "category": "Marketing and content",
+    "summary": "Turns each new RSS article into a LinkedIn post draft in a Google Sheets approval queue; it never posts on its own.",
+    "services": [
+      "RSS",
+      "OpenAI",
+      "Google Sheets"
+    ],
+    "trigger": "RSS feed",
+    "cost": "about $0.0008 per draft in OpenAI tokens"
+  },
+  {
+    "number": 17,
+    "slug": "youtube-video-to-blog-draft",
+    "title": "YouTube video to blog draft in Google Docs",
+    "category": "Marketing and content",
+    "summary": "Turns each new YouTube video into a blog draft in Google Docs from its transcript or description.",
+    "services": [
+      "YouTube",
+      "OpenAI",
+      "Google Docs"
+    ],
+    "trigger": "RSS feed",
+    "cost": "about $0.004 per post in OpenAI tokens"
+  },
+  {
+    "number": 18,
+    "slug": "google-drive-to-instagram-reels",
+    "title": "Google Drive to Instagram Reels",
+    "category": "Marketing and content",
+    "summary": "Publishes videos dropped in a Google Drive folder as Instagram Reels through the Graph API and logs the permalink.",
+    "services": [
+      "Google Drive",
+      "Instagram Graph API",
+      "Google Sheets",
+      "Slack"
+    ],
+    "trigger": "Google Drive file",
+    "cost": "free; no AI calls"
+  },
+  {
+    "number": 19,
+    "slug": "weekly-meta-ads-report",
+    "title": "Weekly Meta ads report to Slack",
+    "category": "Marketing and content",
+    "summary": "Posts a plain-English summary of last week's Meta ads results to Slack every Monday.",
+    "services": [
+      "Meta Marketing API",
+      "OpenAI",
+      "Slack"
+    ],
+    "trigger": "Schedule",
+    "cost": "about $0.002 per report in OpenAI tokens"
+  },
+  {
+    "number": 20,
+    "slug": "google-review-request",
+    "title": "Google review request after an appointment",
+    "category": "Marketing and content",
+    "summary": "Asks clients for a Google review by SMS or email two hours after their calendar appointment ends, once per client.",
+    "services": [
+      "Google Calendar",
+      "Twilio",
+      "Gmail",
+      "Google Sheets"
+    ],
+    "trigger": "Google Calendar event",
+    "cost": "about one cent per SMS request"
+  },
+  {
+    "number": 21,
+    "slug": "invoice-email-to-sheets",
+    "title": "Invoice email to Google Sheets",
+    "category": "Operations and finance",
+    "summary": "Reads PDF invoices from Gmail and adds vendor, dates and amounts to Google Sheets with OpenAI.",
+    "services": [
+      "Gmail",
+      "OpenAI",
+      "Google Sheets"
+    ],
+    "trigger": "Gmail email",
+    "cost": "about $0.002 per invoice in OpenAI tokens"
+  },
+  {
+    "number": 22,
+    "slug": "stripe-payment-to-crm",
+    "title": "Stripe payment to CRM, Slack and thank-you email",
+    "category": "Operations and finance",
+    "summary": "Marks Stripe buyers as customers in HubSpot, posts the sale to Slack and sends a thank-you email.",
+    "services": [
+      "Stripe",
+      "HubSpot",
+      "Slack",
+      "Gmail"
+    ],
+    "trigger": "Stripe payment",
+    "cost": "free; no AI calls"
+  },
+  {
+    "number": 23,
+    "slug": "client-onboarding-kit",
+    "title": "Client onboarding kit",
+    "category": "Operations and finance",
+    "summary": "Sets up a new client from one form: Google Drive folder, Notion page with checklist, welcome email and Slack post.",
+    "services": [
+      "n8n Form",
+      "Google Drive",
+      "Notion",
+      "Gmail",
+      "Slack"
+    ],
+    "trigger": "Form submission",
+    "cost": "free; no AI calls"
+  },
+  {
+    "number": 24,
+    "slug": "daily-kpi-digest",
+    "title": "Daily KPI digest",
+    "category": "Operations and finance",
+    "summary": "Emails a short AI summary of yesterday's KPIs from Google Sheets, compared with the day before and the weekly average.",
+    "services": [
+      "Google Sheets",
+      "OpenAI",
+      "Gmail"
+    ],
+    "trigger": "Schedule",
+    "cost": "about $0.0005 per digest in OpenAI tokens"
+  },
+  {
+    "number": 25,
+    "slug": "contract-pdf-summarizer",
+    "title": "Contract PDF summarizer",
+    "category": "Operations and finance",
+    "summary": "Turns contract PDFs from Gmail or Google Drive into an email brief with parties, dates, terms and risky clauses.",
+    "services": [
+      "Gmail",
+      "Google Drive",
+      "OpenAI"
+    ],
+    "trigger": "Gmail email or Google Drive file",
+    "cost": "about $0.004 per 10 page contract in OpenAI tokens"
+  },
+  {
+    "number": 26,
+    "slug": "search-console-index-watcher",
+    "title": "Search Console index watcher",
+    "category": "SEO and AI visibility",
+    "summary": "Checks key URLs daily with the Search Console URL Inspection API and alerts Slack when a page drops out of the index.",
+    "services": [
+      "Google Search Console",
+      "Google Sheets",
+      "Slack"
+    ],
+    "trigger": "Schedule",
+    "cost": "free; no AI calls"
+  },
+  {
+    "number": 27,
+    "slug": "ai-brand-mention-monitor",
+    "title": "AI brand mention monitor (ChatGPT and Perplexity)",
+    "category": "SEO and AI visibility",
+    "summary": "Asks ChatGPT and Perplexity your buyer questions weekly through DataForSEO and tracks brand mentions and citations.",
+    "services": [
+      "DataForSEO",
+      "Google Sheets",
+      "Slack"
+    ],
+    "trigger": "Schedule",
+    "cost": "about $0.02 per question per engine in DataForSEO fees"
+  },
+  {
+    "number": 28,
+    "slug": "site-uptime-and-broken-links",
+    "title": "Site uptime and broken page alerts",
+    "category": "SEO and AI visibility",
+    "summary": "Checks key pages every 15 minutes and alerts Slack once when one goes down, with reminders and a recovery message.",
+    "services": [
+      "Slack"
+    ],
+    "trigger": "Schedule",
+    "cost": "free; no paid APIs"
+  },
+  {
+    "number": 29,
+    "slug": "competitor-page-change-monitor",
+    "title": "Competitor page change monitor",
+    "category": "SEO and AI visibility",
+    "summary": "Detects changes on competitors' pricing pages daily and posts an AI summary of what changed to Slack.",
+    "services": [
+      "Google Sheets",
+      "OpenAI",
+      "Slack"
+    ],
+    "trigger": "Schedule",
+    "cost": "about $0.001 per change summary in OpenAI tokens"
+  },
+  {
+    "number": 30,
+    "slug": "new-post-to-indexnow",
+    "title": "New post to IndexNow (Bing, Yandex and partners)",
+    "category": "SEO and AI visibility",
+    "summary": "Submits new blog posts from your RSS feed or CMS to IndexNow for Bing and Yandex and logs the response.",
+    "services": [
+      "IndexNow",
+      "Google Sheets"
+    ],
+    "trigger": "RSS feed or webhook",
+    "cost": "free"
+  }
+]

@@ -1,0 +1,314 @@
+{
+  "name": "Facebook Lead Ads to HubSpot with welcome SMS",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Facebook Lead Ads to HubSpot with welcome SMS\n\n**What it does**\nEvery new lead from your Facebook or Instagram lead form is created (or updated) as a HubSpot contact, gets a deal in your pipeline, and receives a short welcome text within seconds.\n\n**You need**\nA Facebook Lead Ads credential (OAuth, needs a Meta app), a HubSpot private app token with contacts and deals scopes, and a Twilio account.\n\n**Setup**\n1. Connect the three credentials.\n2. In **New Facebook lead**, pick your Page and lead form.\n3. In **Create deal**, pick your pipeline stage. Fill in the yellow notes.\n4. Activate. Use Meta's Lead Ads Testing Tool to send a test lead.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 640,
+        "width": 580
+      },
+      "id": "e350ae1e-dc22-5e44-ba66-a56013ee0465",
+      "name": "Facebook Lead Ads to HubSpot with welcome SMS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nSelect your Facebook Page and the lead form to watch. Lead forms should ask for full name, email and phone number.",
+        "height": 200,
+        "width": 260,
+        "color": 6
+      },
+      "id": "ebe5213d-75a0-52d3-9d44-8ac4e8e65f11",
+      "name": "Edit me: page and form",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Create deal**: choose the stage (the default pipeline's first stage is `appointmentscheduled`) and an amount if you have a typical deal size.\n**Send welcome SMS**: set *From* to your Twilio number and rewrite the text.",
+        "height": 200,
+        "width": 500,
+        "color": 6
+      },
+      "id": "b09dc531-eb63-5409-8c57-d0ee1cd40ba1",
+      "name": "Edit me: deal and SMS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "event": "newLead",
+        "page": {
+          "__rl": true,
+          "value": "YOUR_PAGE_ID",
+          "mode": "id"
+        },
+        "form": {
+          "__rl": true,
+          "value": "YOUR_FORM_ID",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "46536bcf-9ba1-528f-bf62-1417eb3d8195",
+      "name": "New Facebook lead",
+      "type": "n8n-nodes-base.facebookLeadAdsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "facebookLeadAdsOAuth2Api": {
+          "name": "Facebook Lead Ads account"
+        }
+      },
+      "webhookId": "8e41ae73-3f87-5256-ae1e-6ae17e41d306"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a907396-934c-573c-a313-9b27835b647f",
+              "name": "full_name",
+              "value": "={{ ($json.data.full_name || [$json.data.first_name, $json.data.last_name].filter(Boolean).join(' ')).trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "4f4707df-4945-5bbb-89e5-5c8171b272c5",
+              "name": "first_name",
+              "value": "={{ ($json.data.first_name || ($json.data.full_name || '').trim().split(' ')[0] || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "2f24daef-6ecc-5030-bb94-a99db22bbfc4",
+              "name": "last_name",
+              "value": "={{ ($json.data.last_name || ($json.data.full_name || '').trim().split(' ').slice(1).join(' ') || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "2795ee3a-c40d-576e-8b16-866ee8d4c012",
+              "name": "email",
+              "value": "={{ ($json.data.email || '').trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "34cf09b7-c81e-5c04-aa9d-fdf40dbaf3cf",
+              "name": "phone",
+              "value": "={{ ($json.data.phone_number || '').replace(/[^0-9+]/g, '') }}",
+              "type": "string"
+            },
+            {
+              "id": "12bd6151-e54e-5bd8-853a-eef783db32e5",
+              "name": "form_name",
+              "value": "={{ $json.form?.name || 'Facebook lead form' }}",
+              "type": "string"
+            },
+            {
+              "id": "cdd20d35-25a6-567a-8ae1-0a549a2d9ead",
+              "name": "campaign",
+              "value": "={{ $json.campaign?.name || $json.adset?.name || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "170c38ed-1004-5c9b-a99c-aeed105bad0f",
+      "name": "Map lead fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "contact",
+        "operation": "upsert",
+        "email": "={{ $json.email }}",
+        "additionalFields": {
+          "firstName": "={{ $json.first_name }}",
+          "lastName": "={{ $json.last_name }}",
+          "phoneNumber": "={{ $json.phone }}",
+          "lifeCycleStage": "lead"
+        }
+      },
+      "id": "b9ae6600-53e7-5817-a18d-ee52f7d77d3c",
+      "name": "Create or update HubSpot contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "name": "HubSpot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "deal",
+        "operation": "create",
+        "stage": "appointmentscheduled",
+        "additionalFields": {
+          "dealName": "={{ $('Map lead fields').item.json.full_name || $('Map lead fields').item.json.email }} ({{ $('Map lead fields').item.json.form_name }})",
+          "associatedVids": "={{ $json.vid }}",
+          "pipeline": "default",
+          "description": "=Facebook lead form: {{ $('Map lead fields').item.json.form_name }}\nCampaign: {{ $('Map lead fields').item.json.campaign || 'unknown' }}"
+        }
+      },
+      "id": "6153ebe2-d3a0-5177-88eb-08cf7f8e8ec4",
+      "name": "Create deal",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "name": "HubSpot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8413545b-4c7a-5c79-bb42-cea8899a155f",
+              "leftValue": "={{ $('Map lead fields').item.json.phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "3d05e9e1-bfec-53b1-9c19-e3dc71f4a172",
+      "name": "Has a phone number?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "from": "+15555550123",
+        "to": "={{ $('Map lead fields').item.json.phone }}",
+        "message": "=Hi {{ $('Map lead fields').item.json.first_name || 'there' }}, thanks for your interest! This is Your Company. We got your details and will call you shortly. Reply STOP to opt out.",
+        "options": {}
+      },
+      "id": "423500b7-d036-5f1f-bcec-56a349850c3d",
+      "name": "Send welcome SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        200
+      ],
+      "credentials": {
+        "twilioApi": {
+          "name": "Twilio account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New Facebook lead": {
+      "main": [
+        [
+          {
+            "node": "Map lead fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map lead fields": {
+      "main": [
+        [
+          {
+            "node": "Create or update HubSpot contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create or update HubSpot contact": {
+      "main": [
+        [
+          {
+            "node": "Create deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create deal": {
+      "main": [
+        [
+          {
+            "node": "Has a phone number?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has a phone number?": {
+      "main": [
+        [
+          {
+            "node": "Send welcome SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

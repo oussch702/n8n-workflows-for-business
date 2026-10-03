@@ -1,0 +1,336 @@
+{
+  "name": "WhatsApp appointment reminders from Google Calendar",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WhatsApp appointment reminders from Google Calendar\n\n**What it does**\nEvery hour, looks at your Google Calendar for appointments in the next 24 hours and sends each client one WhatsApp reminder using an approved template. Every reminder is logged in Google Sheets, so nobody gets the same reminder twice.\n\n**You need**\n- A WhatsApp Business Cloud API number with an approved utility template (wording in the README)\n- Google Calendar and Google Sheets connected to n8n\n- The client's WhatsApp number in each event description, as `WhatsApp: +15555550123`\n\n**Setup**\n1. Put your calendar ID in **Get appointments in the next 24 hours** and your sheet ID (tab `Reminders sent`) in both Google Sheets nodes.\n2. In **Send the WhatsApp reminder**, set your phone number ID and pick your template.\n3. Add a test event with your own number in the description, then run the workflow once.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 780,
+        "width": 560
+      },
+      "id": "a842b3dd-cb2e-5cf5-9d90-e8fd86596a7a",
+      "name": "WhatsApp appointment reminders from Google Calendar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Get appointments in the next 24 hours**: calendar ID.\n**Pick events that need a reminder**: `TIME_ZONE`.\n**Send the WhatsApp reminder**: phone number ID and template.\n**Read reminders already sent** and **Log the reminder**: sheet ID.",
+        "height": 200,
+        "width": 660,
+        "color": 3
+      },
+      "id": "ccd48a8c-d21d-51f8-b2f2-d5f335089952",
+      "name": "Edit me: calendar, sheet, template",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        220,
+        -340
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "9d691da6-bce5-5caa-9316-01a2b0627808",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_CALENDAR_ID",
+          "mode": "id"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $now }}",
+        "timeMax": "={{ $now.plus(24, 'hours') }}",
+        "options": {
+          "singleEvents": true
+        }
+      },
+      "id": "69634b45-ece8-55b4-97fd-2f9beb8c19e7",
+      "name": "Get appointments in the next 24 hours",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reminders sent",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "eec91681-efda-5935-b57d-b85564e414cf",
+      "name": "Read reminders already sent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Time zone used to write the date and time in the message.\nconst TIME_ZONE = 'America/New_York';\n\nconst alreadySent = new Set(\n  $('Read reminders already sent').all().map((i) => String(i.json['Event ID'] ?? '')).filter(Boolean)\n);\n\nconst out = [];\nfor (const { json: ev } of $('Get appointments in the next 24 hours').all()) {\n  if (!ev.id || ev.status === 'cancelled' || !ev.start?.dateTime) continue; // skip all-day events\n  const key = `${ev.id}|${ev.start.dateTime}`; // a moved appointment gets a new reminder\n  if (alreadySent.has(key)) continue;\n\n  const text = String(ev.description ?? '').replace(/<[^>]+>/g, ' ');\n  const phoneMatch = text.match(/WhatsApp:\\s*(\\+?[\\d\\s().-]{8,20})/i);\n  if (!phoneMatch) continue;\n  const phone = phoneMatch[1].replace(/\\D/g, '');\n\n  const nameMatch = text.match(/Name:\\s*([^\\n\\r]+)/i);\n  const firstName = nameMatch ? nameMatch[1].trim().split(/\\s+/)[0] : 'there';\n\n  const start = DateTime.fromISO(ev.start.dateTime).setZone(TIME_ZONE);\n  out.push({\n    json: {\n      eventKey: key,\n      phone,\n      firstName,\n      dateText: start.toFormat('cccc, LLLL d'),\n      timeText: start.toFormat('h:mm a'),\n      startIso: start.toISO(),\n      title: ev.summary ?? '',\n    },\n  });\n}\nreturn out;"
+      },
+      "id": "32510420-b74a-5ea3-9eec-a779ed7628a7",
+      "name": "Pick events that need a reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendTemplate",
+        "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
+        "recipientPhoneNumber": "={{ $json.phone }}",
+        "template": "appointment_reminder|en_US",
+        "components": {
+          "component": [
+            {
+              "type": "body",
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "type": "text",
+                    "text": "={{ $json.firstName }}"
+                  },
+                  {
+                    "type": "text",
+                    "text": "={{ $json.dateText }}"
+                  },
+                  {
+                    "type": "text",
+                    "text": "={{ $json.timeText }}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "b55a90c0-df13-555e-ae3b-c3234454baeb",
+      "name": "Send the WhatsApp reminder",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "name": "WhatsApp account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reminders sent",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Event ID": "={{ $('Pick events that need a reminder').item.json.eventKey }}",
+            "Appointment": "={{ $('Pick events that need a reminder').item.json.startIso }}",
+            "Title": "={{ $('Pick events that need a reminder').item.json.title }}",
+            "Phone": "=+{{ $('Pick events that need a reminder').item.json.phone }}",
+            "Sent at": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+            "Result": "={{ $json.messages?.[0]?.id ? 'sent' : 'failed: ' + ($json.error?.message || 'unknown error') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Event ID",
+              "displayName": "Event ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Appointment",
+              "displayName": "Appointment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sent at",
+              "displayName": "Sent at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Result",
+              "displayName": "Result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "2a38ad1b-bd4f-5a15-b274-ec91852be5e8",
+      "name": "Log the reminder",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Get appointments in the next 24 hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get appointments in the next 24 hours": {
+      "main": [
+        [
+          {
+            "node": "Read reminders already sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read reminders already sent": {
+      "main": [
+        [
+          {
+            "node": "Pick events that need a reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick events that need a reminder": {
+      "main": [
+        [
+          {
+            "node": "Send the WhatsApp reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send the WhatsApp reminder": {
+      "main": [
+        [
+          {
+            "node": "Log the reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

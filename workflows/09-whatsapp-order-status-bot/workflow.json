@@ -1,0 +1,322 @@
+{
+  "name": "WhatsApp order status bot for Shopify",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WhatsApp order status bot for Shopify\n\n**What it does**\nCustomers send their order number on WhatsApp (\"where is #1042?\") and get the payment status, shipping status and tracking link back in seconds. It only shares details when the WhatsApp number matches the phone on the order.\n\n**You need**\n- A WhatsApp Business Cloud API number in a Meta app\n- A Shopify app with the `read_orders` scope (and access to customer phone numbers)\n\n**Setup**\n1. In **Look up the order in Shopify**, replace `YOUR_STORE` in the URL and select your Shopify credential.\n2. Edit the reply wording in **Write the reply** if you like. No AI is needed: a pattern finds the order number.\n3. Connect WhatsApp, activate, and message your number with a real order number from your own phone.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 740,
+        "width": 560
+      },
+      "id": "93dbf8a1-08ae-5b8f-b5b8-9e94fc85f6a0",
+      "name": "WhatsApp order status bot for Shopify",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Look up the order in Shopify**: `YOUR_STORE` in the URL, your credential.\n**Write the reply**: message wording.\n**Ask for the order number**: wording.",
+        "height": 160,
+        "width": 640,
+        "color": 3
+      },
+      "id": "edd46620-33fe-55e6-9bcf-a412297f0900",
+      "name": "Edit me: store and wording",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        440,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "2f6509a1-3d91-5b74-b16b-5f984162116c",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "name": "WhatsApp OAuth account"
+        }
+      },
+      "webhookId": "dfb6cddb-26f9-52bf-a053-1c4eec7a15c3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f49009ea-389c-5810-80f0-9be514916695",
+              "leftValue": "={{ $json.messages?.[0]?.type }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "text"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8a3639e0-539f-53da-8108-3e2ad2f65025",
+      "name": "Only incoming text messages",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2b1cac08-3d8c-5608-a954-40b83f9040d6",
+              "name": "orderNumber",
+              "value": "={{ ($json.messages[0].text.body.match(/#\\s?(\\d{3,10})\\b/) || $json.messages[0].text.body.match(/\\b(\\d{3,10})\\b/) || [])[1] || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "68381b46-6079-50b7-9386-230b7f84bde0",
+              "name": "customerPhone",
+              "value": "={{ $json.messages[0].from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fe3670fc-bfb9-5dd4-8710-445f497dd31c",
+      "name": "Find the order number",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a06929df-80b8-5637-8485-8978eeafa906",
+              "leftValue": "={{ $json.orderNumber }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "708b5224-aa8a-560c-9de0-ecec4fa404a9",
+      "name": "Found an order number?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_STORE.myshopify.com/admin/api/2026-07/graphql.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyAccessTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { query: \"query OrderStatus($q: String!) { orders(first: 1, query: $q) { nodes { name phone displayFinancialStatus displayFulfillmentStatus cancelledAt customer { phone } shippingAddress { phone } fulfillments(first: 5) { displayStatus trackingInfo(first: 3) { company number url } } } } }\", variables: { q: \"name:#\" + $json.orderNumber } } }}",
+        "options": {}
+      },
+      "id": "4737cab3-e91c-5f7d-9ea8-a8cd581912ea",
+      "name": "Look up the order in Shopify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "name": "Shopify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const orderNumber = $('Find the order number').item.json.orderNumber;\nconst sender = String($('Find the order number').item.json.customerPhone);\nconst order = $json.data?.orders?.nodes?.[0];\n\n// Compare the last 9 digits so +44 7700 900123 and 07700 900123 match.\nconst last9 = (p) => String(p ?? '').replace(/\\D/g, '').slice(-9);\nconst phones = [order?.phone, order?.customer?.phone, order?.shippingAddress?.phone].map(last9).filter(Boolean);\n\nlet reply;\nif ($json.errors?.length) {\n  // Usually a missing scope or protected customer data access. Details are in this execution's log.\n  reply = \"Sorry, I can't check orders right now. A member of the team will reply here soon.\";\n} else if (!order) {\n  reply = `I couldn't find order #${orderNumber}. Please check the number in your confirmation email and send it again.`;\n} else if (!phones.includes(last9(sender))) {\n  reply = `I found order ${order.name}, but this WhatsApp number isn't the one on the order, so I can't share its details here. Please message us from the number you used at checkout, or reply \"human\" and the team will help.`;\n} else if (order.cancelledAt) {\n  reply = `Order ${order.name} was cancelled. If that's unexpected, reply here and the team will look into it.`;\n} else {\n  const status = {\n    UNFULFILLED: 'is being prepared',\n    OPEN: 'is being prepared',\n    PENDING_FULFILLMENT: 'is being prepared',\n    IN_PROGRESS: 'is being prepared',\n    ON_HOLD: 'is on hold',\n    SCHEDULED: 'is scheduled to ship',\n    PARTIALLY_FULFILLED: 'has partly shipped',\n    FULFILLED: 'has shipped',\n    RESTOCKED: 'was returned to stock',\n  }[order.displayFulfillmentStatus] ?? `status: ${String(order.displayFulfillmentStatus).toLowerCase()}`;\n\n  const tracking = (order.fulfillments ?? [])\n    .flatMap((f) => f.trackingInfo ?? [])\n    .filter((t) => t.url || t.number)\n    .map((t) => `${t.company ?? 'Tracking'}: ${t.url ?? t.number}`);\n\n  reply = `Order ${order.name} ${status}.`;\n  if (order.displayFinancialStatus === 'PENDING') reply += ' Payment is still pending.';\n  if (tracking.length) reply += `\\n${tracking.join('\\n')}`;\n}\n\nreturn { json: { reply } };"
+      },
+      "id": "b1798dcc-2a33-575f-abfe-b5ae7a134b27",
+      "name": "Write the reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $('WhatsApp Trigger').item.json.metadata.phone_number_id }}",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "textBody": "={{ $json.reply }}",
+        "additionalFields": {
+          "previewUrl": true
+        }
+      },
+      "id": "5e9cfa18-0c6b-5ec3-92f2-14300672d92c",
+      "name": "Send the order status",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        0
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $('WhatsApp Trigger').item.json.metadata.phone_number_id }}",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "textBody": "=Hi! Send me your order number (it looks like #1001, you can find it in your confirmation email) and I will check its status for you.",
+        "additionalFields": {
+          "previewUrl": true
+        }
+      },
+      "id": "95e04b6a-35a9-5f0d-b24b-f8de2fa894dd",
+      "name": "Ask for the order number",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        220
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "name": "WhatsApp account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Only incoming text messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only incoming text messages": {
+      "main": [
+        [
+          {
+            "node": "Find the order number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the order number": {
+      "main": [
+        [
+          {
+            "node": "Found an order number?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Found an order number?": {
+      "main": [
+        [
+          {
+            "node": "Look up the order in Shopify",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask for the order number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look up the order in Shopify": {
+      "main": [
+        [
+          {
+            "node": "Write the reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the reply": {
+      "main": [
+        [
+          {
+            "node": "Send the order status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

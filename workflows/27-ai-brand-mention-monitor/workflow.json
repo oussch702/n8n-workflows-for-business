@@ -1,0 +1,504 @@
+{
+  "name": "AI brand mention monitor (ChatGPT and Perplexity)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## AI brand mention monitor (ChatGPT and Perplexity)\n\n**What it does**\nEvery Monday, asks ChatGPT (with web search) and Perplexity the questions your buyers ask, through DataForSEO's AI Optimization API. Counts how often your brand is named in the answers and how often your domain is cited as a source, logs every answer to Google Sheets and posts a scorecard in Slack.\n\n**You need**\nA DataForSEO account (API login and password), Google Sheets and Slack credentials.\n\n**Setup**\n1. Create a Basic Auth credential named `DataForSEO account` with your DataForSEO API login and password and select it in **Ask the AI engine**.\n2. Fill in **Your brand** and put your spreadsheet ID in both sheet nodes.\n3. Add 5 to 20 buyer questions to the sheet, run once, then activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 700,
+        "width": 500
+      },
+      "id": "f61719bf-0ab0-4dab-adcc-996ba1142bd9",
+      "name": "AI brand mention monitor (ChatGPT and Perplexity)",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nBrand names (comma separated, include common spellings), your domain without https, competitors to compare against, and the country for web search.",
+        "height": 290,
+        "width": 210,
+        "color": 5
+      },
+      "id": "94d355df-6455-4075-a2b9-46fd95752d5f",
+      "name": "Edit me: brand",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nSpreadsheet ID. Tab **Questions** (column `question`) is read, tab **Results** is written.",
+        "height": 290,
+        "width": 200,
+        "color": 5
+      },
+      "id": "9228ae06-ec13-45f8-a3db-74dcfa4442dd",
+      "name": "Edit me: sheet",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        430,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "8c12553e-9369-4826-aded-2d9ce3987e43",
+      "name": "Every Monday at 8:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "brandNames",
+              "name": "brandNames",
+              "value": "Example Co, ExampleCo",
+              "type": "string"
+            },
+            {
+              "id": "domain",
+              "name": "domain",
+              "value": "example.com",
+              "type": "string"
+            },
+            {
+              "id": "competitors",
+              "name": "competitors",
+              "value": "Competitor One, Competitor Two",
+              "type": "string"
+            },
+            {
+              "id": "country",
+              "name": "country",
+              "value": "US",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e92767e9-0e60-4a08-afdc-a70b786d6b29",
+      "name": "Your brand",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Questions",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "e5370708-badd-4233-a895-333e15e65b36",
+      "name": "Read buyer questions",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Each question is asked to both engines. DataForSEO limits prompts to 500 characters.\nconst settings = $('Your brand').first().json;\nconst engines = [\n  { engine: 'ChatGPT', path: 'chat_gpt', task: { model_name: 'gpt-4o-mini', web_search: true, force_web_search: true } },\n  { engine: 'Perplexity', path: 'perplexity', task: { model_name: 'sonar' } },\n];\nconst out = [];\nfor (const { json } of $input.all()) {\n  const question = String(json.question || '').trim().slice(0, 500);\n  if (!question) continue;\n  for (const e of engines) {\n    out.push({\n      json: {\n        question,\n        engine: e.engine,\n        enginePath: e.path,\n        task: {\n          ...e.task,\n          user_prompt: question,\n          max_output_tokens: 1024,\n          web_search_country_iso_code: settings.country,\n          tag: 'brand-monitor',\n        },\n      },\n    });\n  }\n}\nreturn out;"
+      },
+      "id": "7c3c0598-2575-448d-a549-daec4d961a32",
+      "name": "One request per engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.dataforseo.com/v3/ai_optimization/{{ $json.enginePath }}/llm_responses/live",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([$json.task]) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 2,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "d24830f2-9f48-4f9d-aa1d-e8a8cd70039e",
+      "name": "Ask the AI engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "name": "DataForSEO account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const settings = $('Your brand').first().json;\nconst list = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);\nconst escape = (s) => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\nconst countNames = (text, names) => names.reduce((n, name) =>\n  n + (text.match(new RegExp('(^|[^\\\\p{L}\\\\p{N}])' + escape(name) + '(?=$|[^\\\\p{L}\\\\p{N}])', 'giu')) || []).length, 0);\nconst host = (u) => { try { return new URL(u).hostname.replace(/^www\\./, '').toLowerCase(); } catch { return ''; } };\nconst domain = settings.domain.replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/.*$/, '').toLowerCase();\nconst brandNames = list(settings.brandNames);\nconst competitors = list(settings.competitors);\nconst week = new Date().toISOString().slice(0, 10);\n\nreturn $input.all().map((item, i) => {\n  const req = $('One request per engine').itemMatching(i).json;\n  const task = item.json.tasks?.[0];\n  const result = task?.result?.[0];\n  if (!result || task.status_code !== 20000) {\n    return { json: { week, engine: req.engine, question: req.question, status: 'error: ' + (task?.status_message || item.json.status_message || item.json.error?.message || 'no result'),\n      brand_mentioned: false, brand_mentions: 0, domain_cited: false, our_cited_urls: '', sources: 0, top_sources: '', competitor_mentions: '', cost_usd: task?.cost || 0, answer: '' } };\n  }\n  const sections = (result.items || []).flatMap((it) => it.sections || []);\n  const answer = sections.map((s) => s.text || '').join('\\n').trim();\n  const urls = [...new Set(sections.flatMap((s) => (s.annotations || []).map((a) => a.url)).filter(Boolean))];\n  const ours = urls.filter((u) => { const h = host(u); return h === domain || h.endsWith('.' + domain); });\n  const mentions = countNames(answer, brandNames);\n  const compText = competitors.map((c) => `${c}: ${countNames(answer, [c])}`).join(', ');\n  return {\n    json: {\n      week,\n      engine: req.engine,\n      question: req.question,\n      status: 'ok',\n      brand_mentioned: mentions > 0,\n      brand_mentions: mentions,\n      domain_cited: ours.length > 0,\n      our_cited_urls: ours.join(' '),\n      sources: urls.length,\n      top_sources: [...new Set(urls.map(host))].slice(0, 8).join(', '),\n      competitor_mentions: compText,\n      cost_usd: task.cost || 0,\n      answer: answer.slice(0, 5000),\n    },\n  };\n});"
+      },
+      "id": "1844292b-77d7-42ec-a825-fb7d7ebf98de",
+      "name": "Count mentions and citations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Results",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "week": "={{ $json.week }}",
+            "engine": "={{ $json.engine }}",
+            "question": "={{ $json.question }}",
+            "brand_mentioned": "={{ $json.brand_mentioned ? 'yes' : 'no' }}",
+            "brand_mentions": "={{ $json.brand_mentions }}",
+            "domain_cited": "={{ $json.domain_cited ? 'yes' : 'no' }}",
+            "our_cited_urls": "={{ $json.our_cited_urls }}",
+            "sources": "={{ $json.sources }}",
+            "top_sources": "={{ $json.top_sources }}",
+            "competitor_mentions": "={{ $json.competitor_mentions }}",
+            "cost_usd": "={{ $json.cost_usd }}",
+            "status": "={{ $json.status }}",
+            "answer": "={{ $json.answer }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "week",
+              "displayName": "week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "engine",
+              "displayName": "engine",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question",
+              "displayName": "question",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "brand_mentioned",
+              "displayName": "brand_mentioned",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "brand_mentions",
+              "displayName": "brand_mentions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "domain_cited",
+              "displayName": "domain_cited",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "our_cited_urls",
+              "displayName": "our_cited_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sources",
+              "displayName": "sources",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "top_sources",
+              "displayName": "top_sources",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "competitor_mentions",
+              "displayName": "competitor_mentions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cost_usd",
+              "displayName": "cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "8a81a89f-23df-4fb3-ab74-ab04842d10e1",
+      "name": "Log results",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1320,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map((i) => i.json);\nconst settings = $('Your brand').first().json;\nconst domain = settings.domain.replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/.*$/, '');\nconst lines = ['ChatGPT', 'Perplexity'].map((engine) => {\n  const r = rows.filter((x) => x.engine === engine && x.status === 'ok');\n  const named = r.filter((x) => x.brand_mentioned).length;\n  const cited = r.filter((x) => x.domain_cited).length;\n  return `*${engine}*: named in ${named}/${r.length} answers, ${domain} cited in ${cited}/${r.length}`;\n});\nconst missed = rows.filter((x) => x.status === 'ok' && !x.brand_mentioned).map((x) => `- ${x.engine}: ${x.question}`).slice(0, 10);\nconst errors = rows.filter((x) => x.status !== 'ok').length;\nconst cost = rows.reduce((s, x) => s + (Number(x.cost_usd) || 0), 0);\nconst text = [\n  `:mag: *AI visibility for ${list(settings.brandNames)[0]}, week of ${rows[0]?.week || ''}*`,\n  ...lines,\n  missed.length ? '\\nQuestions where you were not named:\\n' + missed.join('\\n') : '\\nNamed in every answer this week.',\n  errors ? `\\n${errors} request(s) failed, see the status column in the sheet.` : '',\n  `\\nDataForSEO cost this run: $${cost.toFixed(3)}`,\n].join('\\n');\nfunction list(s) { return String(s || '').split(',').map((x) => x.trim()).filter(Boolean); }\nreturn [{ json: { text } }];"
+      },
+      "id": "fa45ce1b-4886-4101-a96b-aeb68275a9fb",
+      "name": "Build the scorecard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#marketing",
+          "mode": "name"
+        },
+        "messageType": "text",
+        "text": "={{ $json.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "4224ca5a-932f-44f0-a3a5-15a78de910ef",
+      "name": "Post the scorecard",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1540,
+        440
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Monday at 8:00": {
+      "main": [
+        [
+          {
+            "node": "Your brand",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Your brand": {
+      "main": [
+        [
+          {
+            "node": "Read buyer questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read buyer questions": {
+      "main": [
+        [
+          {
+            "node": "One request per engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One request per engine": {
+      "main": [
+        [
+          {
+            "node": "Ask the AI engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the AI engine": {
+      "main": [
+        [
+          {
+            "node": "Count mentions and citations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count mentions and citations": {
+      "main": [
+        [
+          {
+            "node": "Log results",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build the scorecard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the scorecard": {
+      "main": [
+        [
+          {
+            "node": "Post the scorecard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

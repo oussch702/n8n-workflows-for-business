@@ -1,0 +1,251 @@
+{
+  "name": "Speed to lead: instant email, SMS and Slack",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Speed to lead: instant email, SMS and Slack\n\n**What it does**\nThe moment a new lead arrives, three things happen in parallel: the lead gets a personal confirmation email, your sales rep gets a text message with the lead's details, and the team gets a Slack post. Total time from form submit to SMS is usually a few seconds.\n\n**You need**\nGmail, Twilio and Slack credentials, and a Twilio number that can send SMS.\n\n**Setup**\n1. Connect your credentials.\n2. Fill in the yellow notes: sales rep phone, Twilio number, email text, Slack channel.\n3. Send your leads (form, landing page, Zapier, anything that can POST JSON) to the Production URL of **New lead received** and activate.\n\nEach alert is set to continue on error, so one failing channel never blocks the other two.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 640,
+        "width": 580
+      },
+      "id": "fdcb354c-099b-5841-b65e-4554ad503b37",
+      "name": "Speed to lead: instant email, SMS and Slack",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Text the sales rep**: set *From* to your Twilio number and *To* to the rep's mobile (E.164, like +15555550123).\n**Email the lead**: write it in your own voice.\n**Post in Slack**: pick your channel.",
+        "height": 220,
+        "width": 320,
+        "color": 6
+      },
+      "id": "a759a833-437d-5fdb-a786-e2bfee2094f5",
+      "name": "Edit me: who gets alerted",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "83e03089-2b9e-5681-b79e-4dc2817ac529",
+      "name": "New lead received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "c1685a66-b636-5c02-aef8-588904b14e91"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a907396-934c-573c-a313-9b27835b647f",
+              "name": "name",
+              "value": "={{ ($json.body.name || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "4f4707df-4945-5bbb-89e5-5c8171b272c5",
+              "name": "first_name",
+              "value": "={{ ($json.body.name || 'there').trim().split(' ')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "2f24daef-6ecc-5030-bb94-a99db22bbfc4",
+              "name": "email",
+              "value": "={{ ($json.body.email || '').trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "2795ee3a-c40d-576e-8b16-866ee8d4c012",
+              "name": "phone",
+              "value": "={{ ($json.body.phone || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "34cf09b7-c81e-5c04-aa9d-fdf40dbaf3cf",
+              "name": "interest",
+              "value": "={{ $json.body.interest || $json.body.message || 'not specified' }}",
+              "type": "string"
+            },
+            {
+              "id": "12bd6151-e54e-5bd8-853a-eef783db32e5",
+              "name": "source",
+              "value": "={{ $json.body.source || 'website' }}",
+              "type": "string"
+            },
+            {
+              "id": "cdd20d35-25a6-567a-8ae1-0a549a2d9ead",
+              "name": "received_at",
+              "value": "={{ $now.toFormat('HH:mm') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "524aab28-5882-549e-bd39-c74e2f8b1442",
+      "name": "Normalize lead fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true\n}",
+        "options": {}
+      },
+      "id": "5d91a0da-4c54-5299-818f-f3be4dfbaa43",
+      "name": "Confirm receipt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Got it, {{ $json.first_name }}. We will call you shortly",
+        "emailType": "text",
+        "message": "=Hi {{ $json.first_name }},\n\nThanks for your request. A real person on our team has it right now and will call you within the next few minutes during business hours.\n\nIf you would rather pick a time yourself, use this link:\nhttps://cal.com/your-company/intro\n\nSpeak soon,\nYour Name\nYour Company",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "53a6b23f-e15b-5409-bc59-79723e8378af",
+      "name": "Email the lead",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        120
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "from": "+15555550123",
+        "to": "+15555550124",
+        "message": "=New lead {{ $json.received_at }}: {{ $json.name || 'no name' }}\nPhone: {{ $json.phone || 'n/a' }}\nWants: {{ $json.interest }}\nSource: {{ $json.source }}\nCall within 5 minutes.",
+        "options": {}
+      },
+      "id": "b5ee3c7c-4909-574c-8290-0a0802f6e1ec",
+      "name": "Text the sales rep",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "twilioApi": {
+          "name": "Twilio account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#sales",
+          "mode": "name"
+        },
+        "text": "=:zap: New lead at {{ $json.received_at }}: *{{ $json.name || 'no name' }}*\nEmail: {{ $json.email || 'n/a' }} | Phone: {{ $json.phone || 'n/a' }}\nWants: {{ $json.interest }} | Source: {{ $json.source }}\nThe lead has been emailed and the rep has been texted.",
+        "otherOptions": {}
+      },
+      "id": "c6668c47-5f8d-50c8-9cd5-7d93d8341117",
+      "name": "Post in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        660,
+        480
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "New lead received": {
+      "main": [
+        [
+          {
+            "node": "Normalize lead fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize lead fields": {
+      "main": [
+        [
+          {
+            "node": "Confirm receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm receipt": {
+      "main": [
+        [
+          {
+            "node": "Email the lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Text the sales rep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

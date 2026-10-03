@@ -1,0 +1,444 @@
+{
+  "name": "Retell AI call summary to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Retell AI call summary to Google Sheets\n\n**What it does**\nEvery call your Retell AI receptionist finishes becomes a clean row in Google Sheets: who called, why, a short summary and how hot the lead is. Hot leads also ping your sales channel in Slack.\n\n**You need**\n- A Retell AI agent with a phone number\n- OpenAI API key\n- Google Sheets and Slack connected to n8n\n\n**Setup**\n1. Create a Google Sheet with a tab named `Calls` and the headers listed in the README. Paste its ID into **Log the call in Google Sheets**.\n2. Pick your Slack channel in **Alert sales in Slack** and connect OpenAI, Google Sheets and Slack credentials.\n3. Activate the workflow, copy the production URL of **Retell call webhook** and paste it into your Retell agent's webhook URL.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 720,
+        "width": 560
+      },
+      "id": "93f78364-8f67-5162-8b3f-fe1542aa7a0e",
+      "name": "Retell AI call summary to Google Sheets",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Log the call in Google Sheets**: put your sheet ID here.\n**Alert sales in Slack**: pick the channel.\n\nWant different lead rules? Edit the descriptions in **Extract summary and lead fields**.",
+        "height": 200,
+        "width": 640,
+        "color": 3
+      },
+      "id": "0a3c37fb-a4cf-53ee-b890-e7f5f614df8c",
+      "name": "Edit me: sheet and channel",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "retell-call-events",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "03d59d71-0290-588e-a3d1-639191d41d3b",
+      "name": "Retell call webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "4dfab2da-b029-51a5-b5ee-5efcce869687"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c85d87b9-8630-5bfa-91eb-4ad7cbfdd4c1",
+              "leftValue": "={{ $json.body.event }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "call_ended"
+            },
+            {
+              "id": "298ca34b-45ea-5d7e-9b05-9739648a8f4e",
+              "leftValue": "={{ $json.body.call.transcript }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0ea41b37-d7c5-5045-b68d-c393ca9841cc",
+      "name": "Only finished calls with a transcript",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "text": "=Phone call transcript between our AI receptionist (\"Agent\") and a caller (\"User\"):\n\n{{ $json.body.call.transcript }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "caller_name",
+              "description": "The caller's name if they said it, otherwise empty"
+            },
+            {
+              "name": "caller_email",
+              "description": "Email address the caller gave, otherwise empty"
+            },
+            {
+              "name": "reason_for_call",
+              "description": "What the caller wants, in under 12 words"
+            },
+            {
+              "name": "summary",
+              "description": "Two or three sentence summary of the call for a busy owner",
+              "required": true
+            },
+            {
+              "name": "lead_temperature",
+              "description": "hot = ready to buy or book now, warm = interested but not urgent, cold = not a prospect (wrong number, spam, existing customer admin)",
+              "required": true
+            },
+            {
+              "name": "next_step",
+              "description": "The one thing our team should do next, in under 15 words",
+              "required": true
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "You read phone call transcripts for a small business and fill in the requested fields. Use only facts stated in the call. Leave a field empty when the caller did not say it. lead_temperature must be exactly hot, warm or cold."
+        }
+      },
+      "id": "03711eba-6d1b-51a2-b47f-e6b958a176f9",
+      "name": "Extract summary and lead fields",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "68590cd4-edb5-598c-8701-3c1aa27a49a8",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        440,
+        220
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "56168894-481e-5e9b-9a94-74df94f46cdf",
+              "name": "Date",
+              "value": "={{ DateTime.fromMillis($('Retell call webhook').item.json.body.call.start_timestamp).setZone($now.zone).toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "8442d9b6-8a7a-58ca-a305-24670d29171e",
+              "name": "Call ID",
+              "value": "={{ $('Retell call webhook').item.json.body.call.call_id }}",
+              "type": "string"
+            },
+            {
+              "id": "12d48a9c-97fd-508e-8c81-9c308a9d4f60",
+              "name": "From",
+              "value": "={{ $('Retell call webhook').item.json.body.call.from_number }}",
+              "type": "string"
+            },
+            {
+              "id": "21fe454e-15a8-50eb-9e45-4f3a2d17684b",
+              "name": "To",
+              "value": "={{ $('Retell call webhook').item.json.body.call.to_number }}",
+              "type": "string"
+            },
+            {
+              "id": "f3961635-682e-51fe-96c0-077c78ee175c",
+              "name": "Direction",
+              "value": "={{ $('Retell call webhook').item.json.body.call.direction }}",
+              "type": "string"
+            },
+            {
+              "id": "5c3f534e-48f8-5821-9edc-4e01aa531763",
+              "name": "Duration (sec)",
+              "value": "={{ Math.round(($('Retell call webhook').item.json.body.call.end_timestamp - $('Retell call webhook').item.json.body.call.start_timestamp) / 1000) }}",
+              "type": "number"
+            },
+            {
+              "id": "f558f0d5-7f0a-5439-aa94-69b154d772ba",
+              "name": "Ended by",
+              "value": "={{ $('Retell call webhook').item.json.body.call.disconnection_reason }}",
+              "type": "string"
+            },
+            {
+              "id": "aa687dea-6784-56c8-8c24-5803a5409bfd",
+              "name": "Caller name",
+              "value": "={{ $json.output.caller_name }}",
+              "type": "string"
+            },
+            {
+              "id": "dc9adb6d-0a28-56c6-bc96-b3dc3becd500",
+              "name": "Email",
+              "value": "={{ $json.output.caller_email }}",
+              "type": "string"
+            },
+            {
+              "id": "d64d2acd-28fb-5c32-873f-cb5c57fb6299",
+              "name": "Reason",
+              "value": "={{ $json.output.reason_for_call }}",
+              "type": "string"
+            },
+            {
+              "id": "fea0182a-0906-5f0c-b042-4f9c56758620",
+              "name": "Summary",
+              "value": "={{ $json.output.summary }}",
+              "type": "string"
+            },
+            {
+              "id": "09ebde13-9f58-5fdd-95dc-eafae7963b35",
+              "name": "Lead temperature",
+              "value": "={{ ($json.output.lead_temperature || '').toLowerCase().trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "c2d8af24-aac0-5112-a063-3ad47ed74de2",
+              "name": "Next step",
+              "value": "={{ $json.output.next_step }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a5924bc6-3e67-550c-9636-2abe70fb5215",
+      "name": "Shape the call row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Calls",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "8fb0dd5a-25f1-5505-9c64-541f4497844f",
+      "name": "Log the call in Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ec6b9030-338d-5b5f-a88e-b2ce408049c9",
+              "leftValue": "={{ $('Shape the call row').item.json['Lead temperature'] }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "hot"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8c7a6e01-c5b8-5f26-8036-b270a3230af7",
+      "name": "Is it a hot lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "id"
+        },
+        "text": "=*Hot lead from a phone call*\n*Caller:* {{ $('Shape the call row').item.json['Caller name'] || 'Unknown' }} ({{ $('Shape the call row').item.json.From }})\n*Wants:* {{ $('Shape the call row').item.json.Reason }}\n*Summary:* {{ $('Shape the call row').item.json.Summary }}\n*Next step:* {{ $('Shape the call row').item.json['Next step'] }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "929c777f-cdbb-5642-94d1-7f6eb1349e1e",
+      "name": "Alert sales in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1320,
+        0
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Retell call webhook": {
+      "main": [
+        [
+          {
+            "node": "Only finished calls with a transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only finished calls with a transcript": {
+      "main": [
+        [
+          {
+            "node": "Extract summary and lead fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract summary and lead fields": {
+      "main": [
+        [
+          {
+            "node": "Shape the call row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape the call row": {
+      "main": [
+        [
+          {
+            "node": "Log the call in Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log the call in Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Is it a hot lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract summary and lead fields",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it a hot lead?": {
+      "main": [
+        [
+          {
+            "node": "Alert sales in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

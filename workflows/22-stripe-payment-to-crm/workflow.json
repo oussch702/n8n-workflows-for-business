@@ -1,0 +1,242 @@
+{
+  "name": "Stripe payment to CRM, Slack and thank-you email",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Stripe payment to CRM, Slack and thank-you email\n\n**What it does**\nWhen Stripe confirms a payment, this marks the buyer as a customer in HubSpot, posts the sale in Slack and sends the buyer a short thank-you email with their receipt link.\n\n**You need**\nStripe, HubSpot (private app token), Slack and Gmail credentials in n8n.\n\n**Setup**\n1. Connect the four credentials on the nodes that ask for them.\n2. Pick your Slack channel in **Post the sale in Slack** and edit the email text in **Send thank-you email**.\n3. Activate the workflow. n8n registers the Stripe webhook for you. Make a test payment in Stripe test mode.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 640,
+        "width": 500
+      },
+      "id": "42261994-986c-409c-a172-e19605a8d35c",
+      "name": "Stripe payment to CRM, Slack and thank-you email",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\nRewrite the thank-you email in your own words and sign it with your name. Keep it short.",
+        "height": 230,
+        "width": 210,
+        "color": 5
+      },
+      "id": "f94f77f1-03a4-4d76-a0ba-96b0ed9a2e87",
+      "name": "Edit me: email",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        840,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "events": [
+          "charge.succeeded"
+        ]
+      },
+      "id": "1f8e3518-956c-44fb-ade9-95cdd77afc79",
+      "name": "Payment succeeded in Stripe",
+      "type": "n8n-nodes-base.stripeTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "stripeApi": {
+          "name": "Stripe account"
+        }
+      },
+      "webhookId": "3f7a488e-7c26-495a-b028-f65a1b569ddf"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stripe sends amounts in the smallest unit (cents). Zero-decimal currencies such as JPY are already whole.\nconst ZERO_DECIMAL = ['bif','clp','djf','gnf','jpy','kmf','krw','mga','pyg','rwf','ugx','vnd','vuv','xaf','xof','xpf'];\nreturn $input.all().map((item) => {\n  const charge = item.json.data?.object || {};\n  const currency = (charge.currency || 'usd').toLowerCase();\n  const amount = ZERO_DECIMAL.includes(currency) ? charge.amount : charge.amount / 100;\n  const fullName = (charge.billing_details?.name || '').trim();\n  const [firstName, ...rest] = fullName.split(' ');\n  return {\n    json: {\n      chargeId: charge.id,\n      email: (charge.billing_details?.email || charge.receipt_email || '').toLowerCase(),\n      fullName,\n      firstName: firstName || '',\n      lastName: rest.join(' '),\n      amount,\n      currency: currency.toUpperCase(),\n      amountText: new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(amount),\n      description: charge.description || charge.statement_descriptor || 'Payment',\n      receiptUrl: charge.receipt_url || '',\n      paidAt: new Date((charge.created || Date.now() / 1000) * 1000).toISOString(),\n      livemode: charge.livemode === true,\n    },\n  };\n});"
+      },
+      "id": "f7094888-bfb1-4092-aaf1-97871487d794",
+      "name": "Read the payment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#sales",
+          "mode": "name"
+        },
+        "messageType": "text",
+        "text": "=:moneybag: New payment: *{{ $json.amountText }}* from {{ $json.fullName || $json.email || 'an unknown buyer' }}\n{{ $json.description }}{{ $json.livemode ? '' : ' (test mode)' }}\n<https://dashboard.stripe.com/{{ $json.livemode ? '' : 'test/' }}payments/{{ $json.chargeId }}|Open in Stripe>",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "cca5af33-3c50-4e77-a618-cb1df8a46775",
+      "name": "Post the sale in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        440,
+        140
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "has-email",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cff7007e-f532-45da-a37b-f0ea604135d5",
+      "name": "Has an email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "contact",
+        "operation": "upsert",
+        "email": "={{ $json.email }}",
+        "additionalFields": {
+          "firstName": "={{ $json.firstName }}",
+          "lastName": "={{ $json.lastName }}",
+          "lifeCycleStage": "customer"
+        },
+        "options": {}
+      },
+      "id": "615c42fa-fcbf-4053-a1fb-865234c98843",
+      "name": "Mark contact as customer",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        420
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "name": "HubSpot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Read the payment').item.json.email }}",
+        "subject": "Thank you for your payment",
+        "emailType": "html",
+        "message": "=<p>Hi {{ $('Read the payment').item.json.firstName || 'there' }},</p>\n<p>Thank you, we received your payment of <strong>{{ $('Read the payment').item.json.amountText }}</strong> for {{ $('Read the payment').item.json.description }}.</p>\n{{ $('Read the payment').item.json.receiptUrl ? '<p>Your receipt is here: <a href=\"' + $('Read the payment').item.json.receiptUrl + '\">view receipt</a>.</p>' : '' }}\n<p>If anything is unclear, just reply to this email and a real person will answer.</p>\n<p>Best,<br>Your name<br>Your company</p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "94295c22-29a1-4f50-a5ed-961ec88ef262",
+      "name": "Send thank-you email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        420
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Payment succeeded in Stripe": {
+      "main": [
+        [
+          {
+            "node": "Read the payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the payment": {
+      "main": [
+        [
+          {
+            "node": "Post the sale in Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has an email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has an email?": {
+      "main": [
+        [
+          {
+            "node": "Mark contact as customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark contact as customer": {
+      "main": [
+        [
+          {
+            "node": "Send thank-you email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

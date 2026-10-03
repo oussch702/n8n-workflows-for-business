@@ -1,0 +1,678 @@
+{
+  "name": "Form lead: qualify and route",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Form lead: qualify and route\n\n**What it does**\nYour website form posts here. Each lead is checked against three rules (budget, timeline, decision maker). Qualified leads get your booking link by email and a Slack ping to sales. Everyone else gets a friendly nurture email. Every lead lands in a Google Sheet that works as a simple CRM.\n\n**You need**\nGmail, Slack and Google Sheets credentials, plus a sheet with a tab called `Leads`.\n\n**Setup**\n1. Create the `Leads` tab with these headers in row 1: received_at, name, email, phone, company, budget, timeline, decision_maker, message, source, status\n2. Connect your credentials and fill in the yellow notes.\n3. Point your form at the Production URL of **Website form submitted** (POST, JSON or form-encoded) and activate.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 640,
+        "width": 580
+      },
+      "id": "01cd456b-b668-55c7-9908-a72ed6e352c4",
+      "name": "Form lead: qualify and route",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me: your rules\nChange the minimum budget (2000) and the accepted timelines here. A lead must pass all three checks to count as qualified.",
+        "height": 220,
+        "width": 260,
+        "color": 6
+      },
+      "id": "c499a18c-3edf-514c-a324-46378aaaf44b",
+      "name": "Edit me: qualification rules",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me: emails and Slack\nPut your real booking link and signature in both emails, and your sales channel in the Slack node.",
+        "height": 180,
+        "width": 420,
+        "color": 6
+      },
+      "id": "4b536ebb-1bda-5925-aa90-6c9dfbc78f7b",
+      "name": "Edit me: emails and channel",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        920,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e4801582-3ca4-582f-9107-55a57eea8e3a",
+      "name": "Website form submitted",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "9c48b2f4-c3fd-54b7-9443-b74521b9bb9f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a907396-934c-573c-a313-9b27835b647f",
+              "name": "name",
+              "value": "={{ ($json.body.name || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "4f4707df-4945-5bbb-89e5-5c8171b272c5",
+              "name": "email",
+              "value": "={{ ($json.body.email || '').trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "2f24daef-6ecc-5030-bb94-a99db22bbfc4",
+              "name": "phone",
+              "value": "={{ ($json.body.phone || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "2795ee3a-c40d-576e-8b16-866ee8d4c012",
+              "name": "company",
+              "value": "={{ ($json.body.company || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "34cf09b7-c81e-5c04-aa9d-fdf40dbaf3cf",
+              "name": "budget",
+              "value": "={{ Number(String($json.body.budget || 0).replace(/[^0-9.]/g, '')) || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "12bd6151-e54e-5bd8-853a-eef783db32e5",
+              "name": "timeline",
+              "value": "={{ String($json.body.timeline || '').trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "cdd20d35-25a6-567a-8ae1-0a549a2d9ead",
+              "name": "decision_maker",
+              "value": "={{ ['yes', 'true', '1', 'on'].includes(String($json.body.decision_maker || '').trim().toLowerCase()) }}",
+              "type": "boolean"
+            },
+            {
+              "id": "8413545b-4c7a-5c79-bb42-cea8899a155f",
+              "name": "message",
+              "value": "={{ ($json.body.message || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "596608a5-f4b5-5d56-bfac-930bd5618783",
+              "name": "source",
+              "value": "={{ $json.body.source || 'website form' }}",
+              "type": "string"
+            },
+            {
+              "id": "d1d04acb-be4b-5e63-93b0-72c19f46d331",
+              "name": "received_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "10fc3566-7475-5ebb-8146-cc7cf6cdefff",
+      "name": "Normalize form fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true\n}",
+        "options": {}
+      },
+      "id": "3552a8b2-4efc-5c9c-acdc-1075f390ffa1",
+      "name": "Confirm receipt to the form",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4ad9babf-2a65-5a8a-8d9f-0039e8a2facc",
+              "leftValue": "={{ $json.budget }}",
+              "rightValue": 2000,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "7bd71689-fb06-5279-90b4-970508a66fae",
+              "leftValue": "={{ ['asap', 'this month', '1-3 months'].includes($json.timeline) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "76a64878-f0e6-511b-ba2c-5ce723e1a893",
+              "leftValue": "={{ $json.decision_maker }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "4dc7edee-8f59-54ff-a076-09fe88198dfc",
+      "name": "Is the lead qualified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Next step: pick a time that suits you, {{ $json.name.split(' ')[0] || 'there' }}",
+        "emailType": "text",
+        "message": "=Hi {{ $json.name.split(' ')[0] || 'there' }},\n\nThanks for reaching out about {{ $json.company || 'your project' }}. From what you shared, it sounds like we can help.\n\nThe quickest next step is a 20 minute call. Pick any slot that works for you here:\nhttps://cal.com/your-company/intro\n\nTalk soon,\nYour Name\nYour Company",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "64ac2f92-4249-57ec-9864-6ddfe19e6b7a",
+      "name": "Email the booking link",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        200
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#sales",
+          "mode": "name"
+        },
+        "text": "=:fire: Qualified lead: *{{ $('Normalize form fields').item.json.name }}* ({{ $('Normalize form fields').item.json.company || 'no company' }})\nBudget: {{ $('Normalize form fields').item.json.budget }} | Timeline: {{ $('Normalize form fields').item.json.timeline }} | Decision maker: yes\nEmail: {{ $('Normalize form fields').item.json.email }} | Phone: {{ $('Normalize form fields').item.json.phone || 'n/a' }}\nMessage: {{ $('Normalize form fields').item.json.message || 'none' }}\nThey already have the booking link.",
+        "otherOptions": {}
+      },
+      "id": "6c3201d0-9b05-5413-8982-ffb9017ff161",
+      "name": "Alert sales in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1100,
+        200
+      ],
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "received_at": "={{ $('Normalize form fields').item.json.received_at }}",
+            "name": "={{ $('Normalize form fields').item.json.name }}",
+            "email": "={{ $('Normalize form fields').item.json.email }}",
+            "phone": "={{ $('Normalize form fields').item.json.phone }}",
+            "company": "={{ $('Normalize form fields').item.json.company }}",
+            "budget": "={{ $('Normalize form fields').item.json.budget }}",
+            "timeline": "={{ $('Normalize form fields').item.json.timeline }}",
+            "decision_maker": "={{ $('Normalize form fields').item.json.decision_maker }}",
+            "message": "={{ $('Normalize form fields').item.json.message }}",
+            "source": "={{ $('Normalize form fields').item.json.source }}",
+            "status": "qualified: booking link sent"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timeline",
+              "displayName": "timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "decision_maker",
+              "displayName": "decision_maker",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "06de6420-3425-5f84-9ef4-fc5fb8af11c1",
+      "name": "Log qualified lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1320,
+        200
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Thanks for getting in touch",
+        "emailType": "text",
+        "message": "=Hi {{ $json.name.split(' ')[0] || 'there' }},\n\nThanks for your message. We read every one.\n\nIt sounds like the timing or scope is not quite there yet, which is completely fine. In the meantime, here are a few resources our clients found useful when planning a project like yours:\nhttps://your-company.com/resources\n\nWhenever you are ready, just reply to this email and we will pick it up from there.\n\nBest,\nYour Name\nYour Company",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "c3ffa059-51e6-537b-b4a0-fe8a0a08e53d",
+      "name": "Send the nurture email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        420
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "received_at": "={{ $('Normalize form fields').item.json.received_at }}",
+            "name": "={{ $('Normalize form fields').item.json.name }}",
+            "email": "={{ $('Normalize form fields').item.json.email }}",
+            "phone": "={{ $('Normalize form fields').item.json.phone }}",
+            "company": "={{ $('Normalize form fields').item.json.company }}",
+            "budget": "={{ $('Normalize form fields').item.json.budget }}",
+            "timeline": "={{ $('Normalize form fields').item.json.timeline }}",
+            "decision_maker": "={{ $('Normalize form fields').item.json.decision_maker }}",
+            "message": "={{ $('Normalize form fields').item.json.message }}",
+            "source": "={{ $('Normalize form fields').item.json.source }}",
+            "status": "nurture: resources sent"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timeline",
+              "displayName": "timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "decision_maker",
+              "displayName": "decision_maker",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "64bbcba3-05ea-5965-b734-0e1a4112a6bf",
+      "name": "Log nurture lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1100,
+        420
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Website form submitted": {
+      "main": [
+        [
+          {
+            "node": "Normalize form fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize form fields": {
+      "main": [
+        [
+          {
+            "node": "Confirm receipt to the form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm receipt to the form": {
+      "main": [
+        [
+          {
+            "node": "Is the lead qualified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the lead qualified?": {
+      "main": [
+        [
+          {
+            "node": "Email the booking link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send the nurture email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email the booking link": {
+      "main": [
+        [
+          {
+            "node": "Alert sales in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert sales in Slack": {
+      "main": [
+        [
+          {
+            "node": "Log qualified lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send the nurture email": {
+      "main": [
+        [
+          {
+            "node": "Log nurture lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

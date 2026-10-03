@@ -1,0 +1,355 @@
+{
+  "name": "WhatsApp sale to Meta Conversions API",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WhatsApp sale to Meta Conversions API\n\n**What it does**\nWhen a sale closes in a WhatsApp chat that started from a click-to-WhatsApp ad, this sends a Purchase event to Meta's Conversions API with the ad click ID (`ctwa_clid`). Meta can then credit the ad and optimise for buyers, not just chats. Every attempt is logged in Google Sheets.\n\n**You need**\n- A Meta dataset (Events Manager) linked to your WhatsApp Business Account\n- A system user access token that can send events to that dataset\n- The `ctwa_clid` of the chat (workflow 07 saves it from the first message)\n- Google Sheets connected to n8n\n\n**Setup**\n1. In **Build the Purchase event**, set your WABA ID and currency. In **Send to Meta Conversions API**, replace `YOUR_DATASET_ID`.\n2. Create a Query Auth credential: name `access_token`, value your token. Paste your sheet ID (tab `Meta events`) into **Log the result**.\n3. Activate and POST a test sale to the webhook (example in the README). Use `test_event_code` first.\n\nBuilt by AI Strike Force, aistrikeforce.com",
+        "height": 820,
+        "width": 560
+      },
+      "id": "34137102-0a8a-5ce7-9ce0-94852f99aca0",
+      "name": "WhatsApp sale to Meta Conversions API",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -440
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Edit me\n**Build the Purchase event**: `WABA_ID`, `DEFAULT_CURRENCY`.\n**Send to Meta Conversions API**: dataset ID in the URL, your Query Auth credential.\n**Log the result**: sheet ID.",
+        "height": 180,
+        "width": 660,
+        "color": 3
+      },
+      "id": "6224d4a2-e55c-54d3-ae60-f3930cfbeccf",
+      "name": "Edit me: IDs and currency",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        220,
+        -340
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-sale",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "f0edf86e-9d70-58d3-94d0-899a3d176655",
+      "name": "Sale closed in WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "39025ef6-318e-586e-b7e2-d14c12441de7"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Edit these two values.\nconst WABA_ID = 'YOUR_WABA_ID';        // WhatsApp Business Account ID\nconst DEFAULT_CURRENCY = 'USD';\n\n// Expected body: { order_id, value, currency?, ctwa_clid, event_time?, test_event_code? }\nconst sale = $json.body ?? {};\nconst now = Math.floor(Date.now() / 1000);\nlet eventTime = Number(sale.event_time) || now;\nif (eventTime > 1e12) eventTime = Math.floor(eventTime / 1000); // accept milliseconds too\n\nconst value = Number(sale.value);\nconst clickId = String(sale.ctwa_clid ?? '').trim();\n\nlet skipReason = '';\nif (!clickId) skipReason = 'no ctwa_clid: chat did not start from a click-to-WhatsApp ad';\nelse if (!(value > 0)) skipReason = 'missing or invalid value';\nelse if (now - eventTime > 7 * 24 * 3600) skipReason = 'sale is older than 7 days, Meta rejects it';\n\nconst event = {\n  event_name: 'Purchase',\n  event_time: eventTime,\n  event_id: String(sale.order_id ?? `wa-${clickId}-${eventTime}`), // lets Meta drop duplicates\n  action_source: 'business_messaging',\n  messaging_channel: 'whatsapp',\n  user_data: {\n    whatsapp_business_account_id: WABA_ID,\n    ctwa_clid: clickId,\n  },\n  custom_data: {\n    currency: String(sale.currency || DEFAULT_CURRENCY).toUpperCase(),\n    value,\n  },\n};\n\nconst payload = { data: [event] };\nif (sale.test_event_code) payload.test_event_code = String(sale.test_event_code);\n\nreturn { json: { payload, skipReason, orderId: event.event_id, value, currency: event.custom_data.currency } };"
+      },
+      "id": "32ed8dcb-29d2-5864-9ab4-6f210c681def",
+      "name": "Build the Purchase event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0cd20f7b-7b70-51b6-8f9a-0f142344f7c1",
+              "leftValue": "={{ $json.skipReason }}",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0341cd53-8bbd-5308-8c72-249e1edcfcb8",
+      "name": "Ready to send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v26.0/YOUR_DATASET_ID/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b8c0aa49-05e8-5a62-8cf0-c6003f50bfa2",
+      "name": "Send to Meta Conversions API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "name": "Meta Conversions API token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b7e79cb0-6a43-5895-9c71-009a89d3723b",
+              "name": "Date",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "ebd292f4-72ac-532a-bf7a-cf1b61f6fdae",
+              "name": "Order ID",
+              "value": "={{ $('Build the Purchase event').item.json.orderId }}",
+              "type": "string"
+            },
+            {
+              "id": "debc8553-edbf-5add-9b40-9125fe446ef0",
+              "name": "Value",
+              "value": "={{ $('Build the Purchase event').item.json.value }}",
+              "type": "number"
+            },
+            {
+              "id": "18b17302-34fd-555d-821b-732824ee1974",
+              "name": "Currency",
+              "value": "={{ $('Build the Purchase event').item.json.currency }}",
+              "type": "string"
+            },
+            {
+              "id": "f743af2f-79c3-5f26-bb27-ca2f30d3feb8",
+              "name": "Result",
+              "value": "={{ $json.statusCode === 200 ? 'sent' : 'error ' + $json.statusCode }}",
+              "type": "string"
+            },
+            {
+              "id": "761262f2-0d78-52e7-8df8-24ec4cdfda83",
+              "name": "Details",
+              "value": "={{ $json.statusCode === 200 ? 'events_received: ' + $json.body.events_received + ', fbtrace_id: ' + $json.body.fbtrace_id : ($json.body?.error?.message || JSON.stringify($json.body)) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c498d570-90c3-5027-a2b2-ba5028d4894a",
+      "name": "Shape the log row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b7e79cb0-6a43-5895-9c71-009a89d3723b",
+              "name": "Date",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "eccaecbf-b06f-5a45-bb38-b6a5586dba0c",
+              "name": "Order ID",
+              "value": "={{ $json.orderId }}",
+              "type": "string"
+            },
+            {
+              "id": "70d36390-b84c-51b4-beb1-0b802c0a7974",
+              "name": "Value",
+              "value": "={{ $json.value }}",
+              "type": "number"
+            },
+            {
+              "id": "80d12b14-90f1-50e9-9f74-72b83bf2d1a2",
+              "name": "Currency",
+              "value": "={{ $json.currency }}",
+              "type": "string"
+            },
+            {
+              "id": "82131d8e-34cd-59e5-a55c-7048886a1dee",
+              "name": "Result",
+              "value": "skipped",
+              "type": "string"
+            },
+            {
+              "id": "6226f246-783f-5e11-ac81-417d9a682921",
+              "name": "Details",
+              "value": "={{ $json.skipReason }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5e531910-8780-590c-9de5-5ac4bd36f383",
+      "name": "Shape the skipped row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Meta events",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "a7e2ba4a-e3d7-5d6b-88c1-f31ba10f10ce",
+      "name": "Log the result",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Sale closed in WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Build the Purchase event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the Purchase event": {
+      "main": [
+        [
+          {
+            "node": "Ready to send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready to send?": {
+      "main": [
+        [
+          {
+            "node": "Send to Meta Conversions API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shape the skipped row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Meta Conversions API": {
+      "main": [
+        [
+          {
+            "node": "Shape the log row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape the log row": {
+      "main": [
+        [
+          {
+            "node": "Log the result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape the skipped row": {
+      "main": [
+        [
+          {
+            "node": "Log the result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}
