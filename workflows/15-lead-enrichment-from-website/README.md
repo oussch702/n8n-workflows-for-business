@@ -24,6 +24,10 @@ Reads a new lead's company homepage and writes a short profile (what they do, wh
 4. Add your OpenAI credential to **OpenAI Chat Model**.
 5. Call the Production URL of **New lead to enrich** from your form, from workflow 11 (add an HTTP Request node at the end), or from any tool that can POST JSON. Activate.
 
+### Secure the webhook
+
+Anyone who finds the webhook URL can make the workflow fetch pages and spend OpenAI tokens. In the **Webhook** node, set **Authentication** to **Header Auth**, create a credential with a long random value (for example a header named `X-Webhook-Secret`), and send the same header from your CRM or form backend.
+
 ## Test it
 Click **Execute workflow** and run:
 

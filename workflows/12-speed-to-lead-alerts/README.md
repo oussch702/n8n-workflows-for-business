@@ -25,6 +25,10 @@ Answers every new lead within seconds by emailing the lead, texting your sales r
 4. Open **Post in Slack**: connect Slack and pick the channel.
 5. Send leads to the Production URL of **New lead received** as JSON with `name, email, phone, interest, source`, then activate.
 
+### Secure the webhook
+
+Anyone who finds the webhook URL can trigger emails and paid SMS. In the **Webhook** node, set **Authentication** to **Header Auth**, create a credential with a long random value (for example a header named `X-Webhook-Secret`), and send the same header from your form. If the form posts straight from a browser, add a hidden honeypot field and a rate limit instead, since a browser cannot keep a secret.
+
 ## Test it
 Click **Execute workflow** and run:
 

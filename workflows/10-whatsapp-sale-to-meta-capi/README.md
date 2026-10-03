@@ -31,6 +31,10 @@ Sends a Purchase event to Meta's Conversions API when a sale closes in a WhatsAp
 
 `event_time` (Unix seconds) is optional and defaults to now.
 
+### Secure the webhook
+
+Anyone who finds the webhook URL could send fake purchases to Meta and skew your ad optimization. In the **Webhook** node, set **Authentication** to **Header Auth**, create a credential with a long random value (for example a header named `X-Webhook-Secret`), and send the same header from your order system.
+
 ## Test it
 In Events Manager, open your dataset, go to Test events and copy the test code. Click **Execute workflow** and send:
 

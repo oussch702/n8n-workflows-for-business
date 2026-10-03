@@ -23,6 +23,10 @@ Scores every sales call transcript on budget, timeline and intent, writes the sc
 4. Connect OpenAI in **OpenAI Chat Model** and Slack in **Alert sales in Slack**, and replace `YOUR_SLACK_CHANNEL_ID`.
 5. Activate the workflow and send transcripts to the Production URL of **Call transcript received** as JSON: `name`, `email`, `phone`, `transcript`. Only `transcript` is required, but without `email` nothing is written to HubSpot.
 
+### Secure the webhook
+
+Anyone who finds the webhook URL can send it a transcript and write to HubSpot. In the **Webhook** node, set **Authentication** to **Header Auth**, create a credential with a long random value (for example a header named `X-Webhook-Secret`), and send the same header from whatever posts the transcripts.
+
 ## Test it
 Click **Execute workflow** and send a sample call to the Test URL:
 
