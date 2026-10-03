@@ -17,6 +17,8 @@ const md = `# n8n workflows for business
 
 Thirty n8n workflows for the jobs small businesses automate first: answering calls with an AI receptionist, WhatsApp support and lead qualification, speed to lead, follow-ups, invoices, onboarding, reports and SEO monitoring. Each one imports into n8n as is, comes with a setup guide you can finish in under 30 minutes, and says what it costs to run.
 
+[![Watch the 50-second tour on YouTube](https://img.youtube.com/vi/SNgF8-Ncn1E/maxresdefault.jpg)](https://www.youtube.com/watch?v=SNgF8-Ncn1E)
+
 There are collections with thousands of n8n templates. This one is deliberately small. Every workflow here is a pattern we build for clients at [AI Strike Force](https://aistrikeforce.com), cleaned of client data, and every one is checked before it ships:
 
 - **Validated** against n8n's real node definitions on every commit (the badge above), with zero errors.
