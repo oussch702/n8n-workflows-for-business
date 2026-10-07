@@ -32,7 +32,7 @@ From your own phone, send "What time do you open on Saturday?" to your business 
 
 ## What it costs to run
 - OpenAI: about 1,200 input and 80 output tokens per message with a short FAQ. With gpt-4.1-mini ($0.40 per million input tokens, $1.60 per million output, check current pricing) that is roughly $0.0006 per reply. A 2,000 word FAQ roughly doubles that.
-- WhatsApp: replies sent within 24 hours of the customer's last message are free-form service messages, which Meta does not charge for at the time of writing. Check Meta's current pricing for your country.
+- WhatsApp: replies sent within 24 hours of the customer's last message are service messages. Since 1 October 2026 Meta gives each business number 1,000 free service messages a month and charges per message after that (about $0.0034 each in the US; rates vary by country, check Meta's current pricing). Check Meta's current pricing for your country.
 - Slack is free within normal limits. n8n: one execution per incoming WhatsApp event.
 
 ## Customize

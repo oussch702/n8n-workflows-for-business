@@ -32,7 +32,7 @@ From your own phone, send "Hi, I'm Sam and I need a new website" to your busines
 
 ## What it costs to run
 - OpenAI: about 600 input and 100 output tokens per message. With gpt-4.1-mini ($0.40 per million input tokens, $1.60 per million output, check current pricing) that is roughly $0.0004 per message. A lead usually takes two or three messages.
-- WhatsApp: these are replies inside the 24 hour customer service window, which Meta does not charge for at the time of writing. Chats that start from a click-to-WhatsApp ad also get a free 72 hour window. Check Meta's current pricing.
+- WhatsApp: these are service messages inside the 24 hour customer service window. Since 1 October 2026 Meta gives each business number 1,000 free service messages a month and charges per message after that (about $0.0034 each in the US; rates vary by country). Chats that start from a click-to-WhatsApp ad open a free entry point window of up to 7 days. Check Meta's current pricing.
 - Google Sheets is free. n8n: one execution per incoming WhatsApp event.
 
 ## Customize

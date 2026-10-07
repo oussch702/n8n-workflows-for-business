@@ -32,7 +32,7 @@ Place a test order with your own mobile number as the phone, then send "Where is
 
 ## What it costs to run
 - No AI calls. The Shopify Admin API is free to use within its rate limits.
-- WhatsApp: replies inside the 24 hour customer service window are free-form service messages, which Meta does not charge for at the time of writing. Check Meta's current pricing.
+- WhatsApp: replies inside the 24 hour customer service window are service messages. Since 1 October 2026 Meta gives each business number 1,000 free service messages a month and charges per message after that (about $0.0034 each in the US; rates vary by country, check Meta's current pricing).
 - n8n: one execution per incoming WhatsApp event.
 
 ## Customize

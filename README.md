@@ -43,7 +43,7 @@ Works best on a recent n8n version, self-hosted or n8n Cloud. AI steps use OpenA
 | 06 | [WhatsApp AI support agent](workflows/06-whatsapp-ai-support-agent) | Answers customer questions on WhatsApp from your own FAQ with an AI agent and hands off to staff in Slack on request. | WhatsApp, OpenAI, Slack | about $0.0006 per reply in OpenAI tokens |
 | 07 | [WhatsApp lead qualification](workflows/07-whatsapp-lead-qualification) | Qualifies WhatsApp leads on name, need, budget and timing, keeps them in Google Sheets and sends a calendar link to good fits. | WhatsApp, OpenAI, Google Sheets | about $0.0004 per message in OpenAI tokens |
 | 08 | [WhatsApp appointment reminders from Google Calendar](workflows/08-whatsapp-appointment-reminders) | Sends one WhatsApp template reminder for each Google Calendar appointment in the next 24 hours and logs every send. | Google Calendar, WhatsApp, Google Sheets | Meta utility template rate per message, by country |
-| 09 | [WhatsApp order status bot for Shopify](workflows/09-whatsapp-order-status-bot) | Replies to WhatsApp order questions with live Shopify status and tracking, only for the number on the order. | WhatsApp, Shopify | no AI cost; service replies are free |
+| 09 | [WhatsApp order status bot for Shopify](workflows/09-whatsapp-order-status-bot) | Replies to WhatsApp order questions with live Shopify status and tracking, only for the number on the order. | WhatsApp, Shopify | no AI cost; first 1,000 replies a month free |
 | 10 | [WhatsApp sale to Meta Conversions API](workflows/10-whatsapp-sale-to-meta-capi) | Sends a Purchase event with the click-to-WhatsApp click ID to Meta Conversions API when a chat sale closes. | Meta Conversions API, Google Sheets | free; no AI calls |
 
 ### Leads and CRM
